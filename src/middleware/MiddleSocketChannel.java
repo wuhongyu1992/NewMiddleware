@@ -23,7 +23,7 @@ public class MiddleSocketChannel {
 		try {
 			buffer.position(0);
 			buffer.limit(len);
-			System.out.println("write: " +socketChannel.write(buffer));
+			socketChannel.write(buffer);
 		} catch (IOException e) {
 			e.printStackTrace();
 			System.out.println("Error in output");
