@@ -3,9 +3,6 @@ package middleware;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.net.SocketTimeoutException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
@@ -14,17 +11,17 @@ import java.nio.channels.SocketChannel;
 public class MiddleServerSocket extends Thread {
 	private SharedData sharedData;
 	private ServerSocketChannel serverSocketChannel;
-	private Selector selector;
 	private File dir;
+	private int numWorkers;
+	private MiddleWorker[] workers;
 
 	MiddleServerSocket(SharedData s) {
 		sharedData = s;
 		try {
 			serverSocketChannel = ServerSocketChannel.open();
-			selector = Selector.open();
-			serverSocketChannel.socket().bind(new InetSocketAddress(s.getMiddlePortNum()));
+			serverSocketChannel.socket().bind(
+					new InetSocketAddress(s.getMiddlePortNum()));
 			serverSocketChannel.configureBlocking(false);
-			serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -32,6 +29,14 @@ public class MiddleServerSocket extends Thread {
 		if (!dir.exists()) {
 			dir.mkdirs();
 		}
+
+		numWorkers = sharedData.getNumWorkers();
+		workers = new MiddleWorker[numWorkers];
+		for (int i = 0; i < numWorkers; ++i) {
+			workers[i] = new MiddleWorker(sharedData);
+			workers[i].start();
+		}
+
 	}
 
 	public void run() {
@@ -45,17 +50,29 @@ public class MiddleServerSocket extends Thread {
 
 			if (socketChannel != null) {
 				sharedData.setClearClients(false);
-				MiddlewareUnit newUnit = new MiddlewareUnit(sharedData);
-				if (newUnit.setUp(socketChannel)) {
-					newUnit.start();
-					// sharedData.addUnit(newUnit);
-				}
+
+				MiddleServer middleServer = new MiddleServer();
+				MiddleClient middleClient = new MiddleClient(
+						sharedData.getServerIpAddr(),
+						sharedData.getServerPortNum());
+
+				middleServer.startServer(socketChannel);
+				middleClient.startClient();
+
+				middleServer.register(sharedData.selector, middleClient);
+				
+				middleClient.register(sharedData.selector, middleServer);
+
+				sharedData.putInMap(middleServer.socketChannel, middleServer);
+				sharedData.putInMap(middleClient.socketChannel, middleClient);
 			}
 
 			if (sharedData.getFileBufferSize() >= sharedData.getOutputSize()) {
 				sharedData.flushOutput();
 			}
 		}
+
+		sharedData.flushOutput();
 
 		System.out.println("server socket end");
 	}

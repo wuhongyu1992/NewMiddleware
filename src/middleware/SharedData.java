@@ -3,8 +3,15 @@ package middleware;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.channels.SelectableChannel;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
 
 public class SharedData {
 	private int maxSize;
@@ -23,6 +30,11 @@ public class SharedData {
 	private ArrayList<MiddlewareUnit> units;
 	private boolean outputFlag;
 	private int outputSize;
+	private HashMap<SocketChannel, MiddleSocketChannel> socketMap;
+	private int numWorkers;
+	private Iterator<SelectionKey> keyIterator;
+
+	public Selector selector;
 
 	SharedData() {
 		maxSize = 1024;
@@ -33,16 +45,46 @@ public class SharedData {
 		units = new ArrayList<MiddlewareUnit>();
 		outputFlag = false;
 		clearClients = false;
+		socketMap = new HashMap<SocketChannel, MiddleSocketChannel>();
+		try {
+			selector = Selector.open();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		keyIterator = selector.selectedKeys().iterator();
 	}
-	
+
+	synchronized public SelectionKey getSelectionKey() {
+
+		while (!keyIterator.hasNext()) {
+			try {
+				selector.selectNow();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+			keyIterator = selector.selectedKeys().iterator();
+		}
+
+		SelectionKey key = keyIterator.next();
+
+		keyIterator.remove();
+		return key;
+
+	}
+
+	public void putInMap(SocketChannel sc, MiddleSocketChannel msc) {
+		socketMap.put(sc, msc);
+	}
+
 	public void setFileOutputStream() {
 		file = new File(filePathName + "/Transactions/AllTransactions.txt");
 		int i = 0;
 		while (file.exists() && !file.isDirectory()) {
 			++i;
-			file = new File(filePathName + "/Transactions/AllTransactions(" + i + ").txt");
+			file = new File(filePathName + "/Transactions/AllTransactions(" + i
+					+ ").txt");
 		}
-		
+
 		try {
 			fileOutputStream = new FileOutputStream(file);
 		} catch (FileNotFoundException e1) {
@@ -50,11 +92,11 @@ public class SharedData {
 		}
 		printWriter = new PrintWriter(fileOutputStream, false);
 	}
-	
+
 	public void printTrax(String s) {
 		printWriter.println(s);
 	}
-	
+
 	public void flushOutput() {
 		printWriter.flush();
 		fileBufferSize = 0;
@@ -168,14 +210,16 @@ public class SharedData {
 		this.outputSize = outputSize;
 	}
 
-	/*@SuppressWarnings("deprecation")
-	public void killAllUnits() {
-		while (!units.isEmpty()) {
-			if (units.get(0).isAlive())
-				units.remove(0);
-			else 
-				units.get(0).stop();
-		}
-	}*/
+	public int getNumWorkers() {
+		return numWorkers;
+	}
+
+	public void setNumWorkers(int numWorkers) {
+		this.numWorkers = numWorkers;
+	}
+
+	public MiddleSocketChannel getSocket(SelectableChannel key) {
+		return socketMap.get(key);
+	}
 
 }

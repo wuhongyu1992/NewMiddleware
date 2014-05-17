@@ -94,7 +94,7 @@ public class MiddlewareUnit extends Thread {
 			ts0 = System.currentTimeMillis();
 
 			clientDataLen = middleServer.getInput(clientBuffer);
-			if (clientDataLen != 0) {
+			if (clientDataLen > 0) {
 
 				ts1 = System.currentTimeMillis();
 				// showData(clientData, clientDataLen);
@@ -142,7 +142,7 @@ public class MiddlewareUnit extends Thread {
 
 			serverDataLen = middleClient.getInput(serverBuffer);
 
-			if (serverDataLen != 0) {
+			if (serverDataLen > 0) {
 				ts5 = System.currentTimeMillis();
 				// showData(serverData, serverDataLen);
 
@@ -250,13 +250,6 @@ public class MiddlewareUnit extends Thread {
 		serverBuffer.clear();
 		return true;
 	}
-
-	// private void addToList(ArrayList<Byte> dataArray, byte[] data,
-	// int len) {
-	// for (int i = 0; i < len; ++i) {
-	// dataArray.add(data[i]);
-	// }
-	// }
 
 	private boolean isErrorPacket(byte[] b, int len) {
 		if (len < 5)
@@ -412,47 +405,5 @@ public class MiddlewareUnit extends Thread {
 	private void printFailConnection() {
 		System.out.println("client(" + clientPortNum + ") fails connection.");
 	}
-
-	// private void showClientData(ArrayList<Byte> array) {
-	//
-	// switch (array.get(4)) {
-	// case 1:
-	// System.out.print("client quit");
-	// break;
-	// case 2:
-	// System.out.print("select database: ");
-	// break;
-	// case 3:
-	// System.out.print("");
-	// break;
-	// case 4:
-	// System.out.print("list field: ");
-	// break;
-	// case 5:
-	// System.out.print("create database: ");
-	// break;
-	// case 6:
-	// System.out.print("drop database: ");
-	// break;
-	// default:
-	// break;
-	//
-	// }
-	//
-	// for (int i = 5; i < array.size(); ++i) {
-	// if (array.get(i) < (byte) 32) {
-	// // System.out.print(new String ("'"));
-	// // System.out.print((byte) b[i]);
-	// // System.out.print(new String ("'"));
-	// System.out.print(".");
-	//
-	// } else if (array.get(i) >= (byte) 32 && array.get(i) < (byte) 127)
-	// System.out.print((char) array.get(i).byteValue());
-	// else
-	// System.out.printf(" %02x ", array.get(i));
-	// }
-	// System.out.println();
-	//
-	// }
 
 }

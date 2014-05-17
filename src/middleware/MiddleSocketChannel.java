@@ -2,6 +2,9 @@ package middleware;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.ClosedChannelException;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 
 public class MiddleSocketChannel {
@@ -51,6 +54,14 @@ public class MiddleSocketChannel {
 		try {
 			socketChannel.close();
 		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	public void register(Selector selector, Object attachment) {
+		try {
+			socketChannel.register(selector, SelectionKey.OP_READ, attachment);
+		} catch (ClosedChannelException e) {
 			e.printStackTrace();
 		}
 	}

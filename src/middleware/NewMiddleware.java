@@ -15,6 +15,7 @@ public class NewMiddleware {
 		sharedData.setOutputToFile(true);
 		sharedData.setFileOutputStream();
 		sharedData.setOutputSize(10000);
+		sharedData.setNumWorkers(4);
 
 		MiddleServerSocket middleServerSock = new MiddleServerSocket(sharedData);
 		middleServerSock.start();
