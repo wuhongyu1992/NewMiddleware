@@ -17,8 +17,10 @@ public class NewMiddleware {
 		sharedData.setOutputSize(10000);
 		sharedData.setNumWorkers(4);
 
-		MiddleServerSocket middleServerSock = new MiddleServerSocket(sharedData);
-		middleServerSock.start();
+//		MiddleServerSocket middleServerSock = new MiddleServerSocket(sharedData);
+//		middleServerSock.start();
+		NewServerSocket serverSocket = new NewServerSocket(sharedData);
+		serverSocket.start();
 
 		Scanner scanner = new Scanner(System.in);
 		String s = "";
