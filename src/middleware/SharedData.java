@@ -34,6 +34,8 @@ public class SharedData {
 	private int numWorkers;
 	private Iterator<SelectionKey> keyIterator;
 
+	private long selectTime, inputTime, outputTime;
+
 	public Selector selector;
 
 	SharedData() {
@@ -220,6 +222,42 @@ public class SharedData {
 
 	public MiddleSocketChannel getSocket(SelectableChannel key) {
 		return socketMap.get(key);
+	}
+
+	public long getSelectTime() {
+		return selectTime;
+	}
+
+	public void setSelectTime(long selectTime) {
+		this.selectTime = selectTime;
+	}
+
+	public long getInputTime() {
+		return inputTime;
+	}
+
+	public void setInputTime(long inputTime) {
+		this.inputTime = inputTime;
+	}
+
+	public long getOutputTime() {
+		return outputTime;
+	}
+
+	public void setOutputTime(long outputTime) {
+		this.outputTime = outputTime;
+	}
+
+	public void addSelectTime(long t) {
+		this.selectTime += t;
+	}
+
+	public void addInputTime(long t) {
+		this.inputTime += t;
+	}
+
+	public void addOutputTime(long t) {
+		this.outputTime += t;
 	}
 
 }

@@ -19,8 +19,12 @@ public class NewMiddleware {
 
 //		MiddleServerSocket middleServerSock = new MiddleServerSocket(sharedData);
 //		middleServerSock.start();
-		NewServerSocket serverSocket = new NewServerSocket(sharedData);
-		serverSocket.start();
+		
+//		NewServerSocket serverSocket = new NewServerSocket(sharedData);
+//		serverSocket.start();
+		
+		RequestHandler requestHandler = new RequestHandler(sharedData);
+		requestHandler.start();
 
 		Scanner scanner = new Scanner(System.in);
 		String s = "";
