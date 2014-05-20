@@ -113,7 +113,6 @@ public class RequestHandler extends Thread {
 			// }
 
 			sharedData.addSelectTime(System.currentTimeMillis() - ts);
-			System.out.println(buffers.size());
 		}
 
 		sharedData.flushOutput();
