@@ -10,7 +10,7 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.Vector;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -24,7 +24,7 @@ public class RequestHandler extends Thread {
 	private Iterator<SelectionKey> keyIterator;
 	private ExecutorService threadPool;
 
-	private Vector<ByteBuffer> buffers;
+	private ConcurrentLinkedQueue<ByteBuffer> buffers;
 
 	RequestHandler(SharedData s) {
 		sharedData = s;
@@ -51,14 +51,13 @@ public class RequestHandler extends Thread {
 		numWorkers = sharedData.getNumWorkers();
 		socketMap = new HashMap<SocketChannel, MiddleSocketChannel>();
 		threadPool = Executors.newFixedThreadPool(numWorkers);
-		buffers = new Vector<ByteBuffer>(4 * numWorkers);
-		for (int i = 0; i < 4 * numWorkers; ++i) {
+		buffers = new ConcurrentLinkedQueue<ByteBuffer>();
+		for (int i = 0; i < 2 * numWorkers; ++i) {
 			buffers.add(ByteBuffer.allocateDirect(sharedData.getMaxSize()));
 		}
 	}
 
 	public void run() {
-		int count = 0;
 		while (!sharedData.isEndOfProgram()) {
 
 			long ts = System.currentTimeMillis();
@@ -99,12 +98,12 @@ public class RequestHandler extends Thread {
 						socketMap.put(middleClient.socketChannel, middleClient);
 					}
 				} else if (key.isReadable()) {
+					while (buffers.isEmpty()) {
+					}
 					RequestWorker worker = new RequestWorker(sharedData,
-							buffers.elementAt(count % (buffers.size())),
-							socketMap.get(key.channel()),
+							buffers, socketMap.get(key.channel()),
 							(MiddleSocketChannel) key.attachment());
 					threadPool.execute(worker);
-					++count;
 				}
 			}
 
@@ -114,6 +113,7 @@ public class RequestHandler extends Thread {
 			// }
 
 			sharedData.addSelectTime(System.currentTimeMillis() - ts);
+			System.out.println(buffers.size());
 		}
 
 		sharedData.flushOutput();
@@ -122,10 +122,12 @@ public class RequestHandler extends Thread {
 		long t0 = sharedData.getSelectTime();
 		long t1 = sharedData.getInputTime();
 		long t2 = sharedData.getOutputTime();
-		long t = t0 + t1 + t2;
+		long t3 = sharedData.getReturnTime();
+		long t = t0 + t1 + t2 + t3;
 		System.out.println("t0: " + ((double) t0) / t);
 		System.out.println("t1: " + ((double) t1) / t);
 		System.out.println("t2: " + ((double) t2) / t);
+		System.out.println("t3: " + ((double) t3) / t);
 
 		System.out.println("server socket end");
 	}

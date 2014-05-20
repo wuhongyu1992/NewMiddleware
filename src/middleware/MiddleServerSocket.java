@@ -3,7 +3,6 @@ package middleware;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
@@ -31,6 +30,12 @@ public class MiddleServerSocket extends Thread {
 		}
 
 		numWorkers = sharedData.getNumWorkers();
+		try {
+			sharedData.selector = Selector.open();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		sharedData.keyIterator = sharedData.selector.selectedKeys().iterator();
 		workers = new MiddleWorker[numWorkers];
 		for (int i = 0; i < numWorkers; ++i) {
 			workers[i] = new MiddleWorker(sharedData);
@@ -60,7 +65,7 @@ public class MiddleServerSocket extends Thread {
 				middleClient.startClient();
 
 				middleServer.register(sharedData.selector, middleClient);
-				
+
 				middleClient.register(sharedData.selector, middleServer);
 
 				sharedData.putInMap(middleServer.socketChannel, middleServer);

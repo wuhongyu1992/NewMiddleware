@@ -32,11 +32,11 @@ public class SharedData {
 	private int outputSize;
 	private HashMap<SocketChannel, MiddleSocketChannel> socketMap;
 	private int numWorkers;
-	private Iterator<SelectionKey> keyIterator;
 
-	private long selectTime, inputTime, outputTime;
+	private long selectTime, inputTime, outputTime, returnTime;
 
 	public Selector selector;
+	public Iterator<SelectionKey> keyIterator;
 
 	SharedData() {
 		maxSize = 1024;
@@ -48,12 +48,7 @@ public class SharedData {
 		outputFlag = false;
 		clearClients = false;
 		socketMap = new HashMap<SocketChannel, MiddleSocketChannel>();
-		try {
-			selector = Selector.open();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-		keyIterator = selector.selectedKeys().iterator();
+		
 	}
 
 	synchronized public SelectionKey getSelectionKey() {
@@ -258,6 +253,18 @@ public class SharedData {
 
 	public void addOutputTime(long t) {
 		this.outputTime += t;
+	}
+
+	public long getReturnTime() {
+		return returnTime;
+	}
+
+	public void setReturnTime(long returnTime) {
+		this.returnTime = returnTime;
+	}
+
+	public void addReturnTime(long t) {
+		this.returnTime += t;
 	}
 
 }
