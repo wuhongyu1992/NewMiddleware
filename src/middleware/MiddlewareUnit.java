@@ -4,7 +4,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.PrintWriter;
-import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
@@ -57,7 +56,6 @@ public class MiddlewareUnit extends Thread {
 		sharedData = s;
 		maxSize = sharedData.getMaxSize();
 
-		middleServer = new MiddleServer();
 		middleClient = new MiddleClient(sharedData.getServerIpAddr(),
 				sharedData.getServerPortNum());
 
@@ -186,7 +184,8 @@ public class MiddlewareUnit extends Thread {
 	}
 
 	synchronized public boolean setUp(SocketChannel socketChannel) {
-		middleServer.startServer(socketChannel);
+		middleServer = new MiddleServer(socketChannel);
+		middleServer.startServer(null);
 		middleClient.startClient();
 		clientPortNum = middleServer.getClientPort();
 

@@ -12,18 +12,21 @@ public class NewWorker extends Thread {
 	private SharedData sharedData;
 	private MiddleSocketChannel from;
 	private MiddleSocketChannel to;
+	private byte[] data;
 	private ByteBuffer buffer;
 	private Iterator<SelectionKey> keyIterator;
 
 	public HashMap<SocketChannel, MiddleSocketChannel> socketMap;
 	public Selector selector;
 
-	private long ts0, ts1, ts2, ts3, ts4;
-	private long t0 = 0, t1 = 0, t2 = 0, t3 = 0;
+	private long ts0, ts1, ts2, ts3, ts4, ts5;
+	private long t0 = 0, t1 = 0, t2 = 0, t3 = 0, t4 = 0;
 
 	NewWorker(SharedData s, Selector s1) {
 		sharedData = s;
-		buffer = ByteBuffer.allocateDirect(sharedData.getMaxSize());
+		data = new byte[sharedData.getMaxSize()];
+		// buffer = ByteBuffer.allocateDirect(sharedData.getMaxSize());
+		buffer = ByteBuffer.wrap(data);
 		selector = s1;
 		socketMap = new HashMap<SocketChannel, MiddleSocketChannel>();
 		from = null;
@@ -61,22 +64,42 @@ public class NewWorker extends Thread {
 
 				ts3 = System.currentTimeMillis();
 
-				if (len <= 0)
+				if (len <= 0) {
+					if (from.connectClient) {
+						((MiddleServer) from).transactionData.flushToFile();
+					}
 					continue;
+				}
 				to.sendOutput(buffer, len);
 
 				ts4 = System.currentTimeMillis();
 
+				if (from.connectClient) {
+					((MiddleServer) from).transactionData.checkAutoCommit(data,
+							len);
+					if (sharedData.isOutputToFile()) {
+						((MiddleServer) from).transactionData.processData(data,
+								len, ts3);
+					}
+				} else if (sharedData.isOutputToFile()
+						&& ((MiddleServer) to).transactionData.endingTrax) {
+					((MiddleServer) to).transactionData.endTrax(ts4);
+				}
+
+				ts5 = System.currentTimeMillis();
+
 				t1 += ts2 - ts1;
 				t2 += ts3 - ts2;
 				t3 += ts4 - ts3;
+				t4 += ts5 - ts4;
 			}
 		}
-		long t = t0 + t1 + t2 + t3;
+		long t = t0 + t1 + t2 + t3 + t4;
 		System.out.println("t0: " + ((double) t0) / t);
 		System.out.println("t1: " + ((double) t1) / t);
 		System.out.println("t2: " + ((double) t2) / t);
 		System.out.println("t3: " + ((double) t3) / t);
+		System.out.println("t4: " + ((double) t4) / t);
 
 	}
 

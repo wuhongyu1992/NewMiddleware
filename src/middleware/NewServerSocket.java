@@ -58,23 +58,26 @@ public class NewServerSocket extends Thread {
 			if (socketChannel != null) {
 				sharedData.setClearClients(false);
 
-				MiddleServer middleServer = new MiddleServer();
+				MiddleServer middleServer = new MiddleServer(socketChannel);
 				MiddleClient middleClient = new MiddleClient(
 						sharedData.getServerIpAddr(),
 						sharedData.getServerPortNum());
-
-				middleServer.startServer(socketChannel);
+				TransactionData transactionData = new TransactionData(
+						sharedData, middleServer);
+				middleServer.startServer(transactionData);
 				middleClient.startClient();
 
-				middleServer.register(workers[count].selector, middleClient);
+				middleServer.register(workers[count % numWorkers].selector,
+						middleClient);
 
-				middleClient.register(workers[count].selector, middleServer);
+				middleClient.register(workers[count % numWorkers].selector,
+						middleServer);
 
 				workers[count].socketMap.put(middleServer.socketChannel,
 						middleServer);
 				workers[count].socketMap.put(middleClient.socketChannel,
 						middleClient);
-				count = (count + 1) % numWorkers;
+				++count;
 			}
 
 			if (sharedData.getFileBufferSize() >= sharedData.getOutputSize()) {

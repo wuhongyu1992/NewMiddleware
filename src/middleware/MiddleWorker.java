@@ -9,8 +9,8 @@ public class MiddleWorker extends Thread {
 	private MiddleSocketChannel to;
 	private ByteBuffer buffer;
 
-	private long ts0, ts1, ts2, ts3, ts4;
-	private long t0 = 0, t1 = 0, t2 = 0, t3 = 0;
+	private long ts0, ts1, ts2, ts3;
+	private long t0 = 0, t1 = 0, t2 = 0;
 
 	MiddleWorker(SharedData s) {
 		sharedData = s;

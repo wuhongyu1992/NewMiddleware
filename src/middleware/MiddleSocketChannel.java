@@ -12,6 +12,8 @@ public class MiddleSocketChannel {
 	protected String ipAddr;
 	protected int portNum;
 
+	public boolean connectClient;
+
 	public MiddleSocketChannel(String ip, int port) {
 		ipAddr = ip;
 		portNum = port;
@@ -57,7 +59,7 @@ public class MiddleSocketChannel {
 			e.printStackTrace();
 		}
 	}
-	
+
 	public void register(Selector selector, Object attachment) {
 		try {
 			socketChannel.register(selector, SelectionKey.OP_READ, attachment);

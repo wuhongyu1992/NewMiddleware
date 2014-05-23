@@ -5,19 +5,25 @@ import java.net.InetSocketAddress;
 import java.nio.channels.SocketChannel;
 
 public class MiddleServer extends MiddleSocketChannel {
+	public TransactionData transactionData;
 
-	public MiddleServer() {
+	public MiddleServer(SocketChannel s) {
 		super();
-	}
+		connectClient = true;
 
-	public void startServer(SocketChannel inSocketChannel) {
-
-		socketChannel = inSocketChannel;
+		socketChannel = s;
 		try {
 			socketChannel.configureBlocking(false);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+		transactionData = null;
+	}
+
+	public void startServer(TransactionData t) {
+
+		
+		transactionData = t;
 		
 		// System.out.println("startServer");
 	}

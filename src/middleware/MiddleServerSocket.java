@@ -56,12 +56,12 @@ public class MiddleServerSocket extends Thread {
 			if (socketChannel != null) {
 				sharedData.setClearClients(false);
 
-				MiddleServer middleServer = new MiddleServer();
+				MiddleServer middleServer = new MiddleServer(socketChannel);
 				MiddleClient middleClient = new MiddleClient(
 						sharedData.getServerIpAddr(),
 						sharedData.getServerPortNum());
 
-				middleServer.startServer(socketChannel);
+				middleServer.startServer(null);
 				middleClient.startClient();
 
 				middleServer.register(sharedData.selector, middleClient);
