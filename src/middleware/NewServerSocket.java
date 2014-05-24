@@ -73,9 +73,9 @@ public class NewServerSocket extends Thread {
 				middleClient.register(workers[count % numWorkers].selector,
 						middleServer);
 
-				workers[count].socketMap.put(middleServer.socketChannel,
+				workers[count % numWorkers].socketMap.put(middleServer.socketChannel,
 						middleServer);
-				workers[count].socketMap.put(middleClient.socketChannel,
+				workers[count % numWorkers].socketMap.put(middleClient.socketChannel,
 						middleClient);
 				++count;
 			}
