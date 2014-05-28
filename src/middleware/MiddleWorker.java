@@ -25,7 +25,7 @@ public class MiddleWorker extends Thread {
 			ts0 = System.currentTimeMillis();
 
 			SelectionKey key = sharedData.getSelectionKey();
-			from = sharedData.getSocket(key.channel());
+			from = sharedData.socketMap.get(key.channel());
 			to = (MiddleSocketChannel) key.attachment();
 
 			ts1 = System.currentTimeMillis();

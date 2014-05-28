@@ -107,15 +107,9 @@ public class RequestHandler extends Thread {
 				}
 			}
 
-			// if (sharedData.getFileBufferSize() >= sharedData.getOutputSize())
-			// {
-			// sharedData.flushOutput();
-			// }
-
 			sharedData.addSelectTime(System.currentTimeMillis() - ts);
 		}
 
-		sharedData.flushOutput();
 
 		threadPool.shutdown();
 		long t0 = sharedData.getSelectTime();

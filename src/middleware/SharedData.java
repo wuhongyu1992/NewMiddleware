@@ -4,15 +4,17 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 
+/** 
+ * The class to place data shared by all other classes
+ * 
+ * @author Hongyu Wu
+ */
 public class SharedData {
 	private int maxSize;
 	private int numClient;
@@ -25,16 +27,12 @@ public class SharedData {
 	private String filePathName;
 	private File file;
 	private FileOutputStream fileOutputStream;
-	private PrintWriter printWriter;
-	private int fileBufferSize;
-	private ArrayList<MiddlewareUnit> units;
 	private boolean outputFlag;
-	private int outputSize;
-	private HashMap<SocketChannel, MiddleSocketChannel> socketMap;
 	private int numWorkers;
 
 	private long selectTime, inputTime, outputTime, returnTime;
 
+	public HashMap<SocketChannel, MiddleSocketChannel> socketMap;
 	public Selector selector;
 	public Iterator<SelectionKey> keyIterator;
 
@@ -44,10 +42,8 @@ public class SharedData {
 		endOfProgram = false;
 		outputToFile = false;
 		filePathName = null;
-		units = new ArrayList<MiddlewareUnit>();
 		outputFlag = false;
 		clearClients = false;
-		socketMap = new HashMap<SocketChannel, MiddleSocketChannel>();
 		
 	}
 
@@ -69,10 +65,6 @@ public class SharedData {
 
 	}
 
-	public void putInMap(SocketChannel sc, MiddleSocketChannel msc) {
-		socketMap.put(sc, msc);
-	}
-
 	public void setFileOutputStream() {
 		file = new File(filePathName + "/Transactions/AllTransactions.txt");
 		int i = 0;
@@ -87,16 +79,6 @@ public class SharedData {
 		} catch (FileNotFoundException e1) {
 			e1.printStackTrace();
 		}
-		printWriter = new PrintWriter(fileOutputStream, false);
-	}
-
-	public void printTrax(String s) {
-		printWriter.println(s);
-	}
-
-	public void flushOutput() {
-		printWriter.flush();
-		fileBufferSize = 0;
 	}
 
 	public int getMaxSize() {
@@ -171,18 +153,6 @@ public class SharedData {
 		}
 	}
 
-	public int getFileBufferSize() {
-		return fileBufferSize;
-	}
-
-	public void addFileBufferSize(int n) {
-		fileBufferSize += n;
-	}
-
-	public void addUnit(MiddlewareUnit newUnit) {
-		units.add(newUnit);
-	}
-
 	public boolean isOutputFlag() {
 		return outputFlag;
 	}
@@ -199,24 +169,12 @@ public class SharedData {
 		this.clearClients = clearClients;
 	}
 
-	public int getOutputSize() {
-		return outputSize;
-	}
-
-	public void setOutputSize(int outputSize) {
-		this.outputSize = outputSize;
-	}
-
 	public int getNumWorkers() {
 		return numWorkers;
 	}
 
 	public void setNumWorkers(int numWorkers) {
 		this.numWorkers = numWorkers;
-	}
-
-	public MiddleSocketChannel getSocket(SelectableChannel key) {
-		return socketMap.get(key);
 	}
 
 	public long getSelectTime() {

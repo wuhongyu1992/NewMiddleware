@@ -7,65 +7,87 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 
+/**
+ * A class encapsulate SocketChannel
+ * @author Hongyu Wu
+ */
 public class MiddleSocketChannel {
-	protected SocketChannel socketChannel;
-	protected String ipAddr;
-	protected int portNum;
+  protected SocketChannel socketChannel;
+  protected String ipAddr;
+  protected int portNum;
 
-	public boolean connectClient;
+  public boolean connectClient;
 
-	public MiddleSocketChannel(String ip, int port) {
-		ipAddr = ip;
-		portNum = port;
-		socketChannel = null;
-	}
+  public MiddleSocketChannel(String ip, int port) {
+    ipAddr = ip;
+    portNum = port;
+    socketChannel = null;
+  }
 
-	public MiddleSocketChannel() {
-		socketChannel = null;
-	}
+  public MiddleSocketChannel() {
+    socketChannel = null;
+  }
 
-	public void sendOutput(ByteBuffer buffer, int len) {
-		try {
-			buffer.position(0);
-			buffer.limit(len);
-			socketChannel.write(buffer);
-		} catch (IOException e) {
-			e.printStackTrace();
-			System.out.println("Error in output");
-		}
-	}
+  public void sendOutput(ByteBuffer buffer, int len) {
+    try {
+      buffer.position(0);
+      buffer.limit(len);
+      socketChannel.write(buffer);
+    } catch (IOException e) {
+      e.printStackTrace();
+      System.out.println("Error in output");
+    }
+  }
 
-	public int getInput(ByteBuffer buffer) {
-		int len = 0;
-		try {
-			len = socketChannel.read(buffer);
+  /**
+   * 
+   * @param buffer
+   *          to hold data
+   * @return the actual size of input data
+   */
+  public int getInput(ByteBuffer buffer) {
+    int len = 0;
+    try {
+      len = socketChannel.read(buffer);
 
-		} catch (IOException ioe) {
-			ioe.printStackTrace();
-			System.out.println("Error in receiving data stream");
-		}
-		// System.out.println(len);
-		return len;
-	}
+    } catch (IOException ioe) {
+      ioe.printStackTrace();
+      System.out.println("Error in receiving data stream");
+    }
+    // System.out.println(len);
+    return len;
+  }
 
-	public boolean isConnected() {
-		return socketChannel.isConnected();
-	}
+  /**
+   * 
+   * @return true if the socket channel is connected, false otherwise
+   */
+  public boolean isConnected() {
+    return socketChannel.isConnected();
+  }
 
-	public void close() {
-		try {
-			socketChannel.close();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-	}
+  /**
+   * close the socket channel 
+   */
+  public void close() {
+    try {
+      socketChannel.close();
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+  }
 
-	public void register(Selector selector, Object attachment) {
-		try {
-			socketChannel.register(selector, SelectionKey.OP_READ, attachment);
-		} catch (ClosedChannelException e) {
-			e.printStackTrace();
-		}
-	}
+  /**
+   * register the socket channel to selector and attach the attachment
+   * @param selector the selector to register
+   * @param attachment the object to attach onto the selector
+   */
+  public void register(Selector selector, Object attachment) {
+    try {
+      socketChannel.register(selector, SelectionKey.OP_READ, attachment);
+    } catch (ClosedChannelException e) {
+      e.printStackTrace();
+    }
+  }
 
 }

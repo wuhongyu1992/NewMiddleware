@@ -6,6 +6,7 @@ import java.net.InetSocketAddress;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.util.HashMap;
 
 public class MiddleServerSocket extends Thread {
 	private SharedData sharedData;
@@ -42,6 +43,8 @@ public class MiddleServerSocket extends Thread {
 			workers[i].start();
 		}
 
+		sharedData.socketMap = new HashMap<SocketChannel, MiddleSocketChannel>();
+
 	}
 
 	public void run() {
@@ -68,16 +71,11 @@ public class MiddleServerSocket extends Thread {
 
 				middleClient.register(sharedData.selector, middleServer);
 
-				sharedData.putInMap(middleServer.socketChannel, middleServer);
-				sharedData.putInMap(middleClient.socketChannel, middleClient);
-			}
-
-			if (sharedData.getFileBufferSize() >= sharedData.getOutputSize()) {
-				sharedData.flushOutput();
+				sharedData.socketMap.put(middleServer.socketChannel, middleServer);
+				sharedData.socketMap.put(middleClient.socketChannel, middleClient);
 			}
 		}
 
-		sharedData.flushOutput();
 
 		System.out.println("server socket end");
 	}

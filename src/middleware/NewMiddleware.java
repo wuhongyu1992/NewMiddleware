@@ -13,8 +13,6 @@ public class NewMiddleware {
 		sharedData.setMiddlePortNum(3320);
 		sharedData.setFilePathName(".");
 		sharedData.setOutputToFile(true);
-		sharedData.setFileOutputStream();
-		sharedData.setOutputSize(10000);
 		sharedData.setNumWorkers(4);
 
 //		MiddleServerSocket middleServerSock = new MiddleServerSocket(sharedData);
@@ -54,25 +52,9 @@ public class NewMiddleware {
 			if (s.contentEquals("p")) {
 				sharedData.setClearClients(true);
 			}
-			// if (s.contentEquals("k")) {
-			// sharedData.killAllUnits();
-			// }
-
-			if (s.charAt(0) == 's') {
-				s = s.replace('s', ' ');
-				s = s.trim();
-				try {
-					int bufferSize = Integer.parseInt(s);
-					sharedData.setOutputSize(bufferSize);
-					System.out.println("Set file buffer size to " + bufferSize);
-				} catch (Exception e) {
-					System.out.println("invalid input");
-				}
-			}
 
 		}
 
-		sharedData.flushOutput();
 		System.out.println("main end");
 		scanner.close();
 
