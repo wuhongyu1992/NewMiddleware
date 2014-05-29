@@ -1,0 +1,3 @@
+#!/bin/bash
+BIN_PATH=ban
+java -cp $BIN_PATH middleware.NewMiddleware $@
