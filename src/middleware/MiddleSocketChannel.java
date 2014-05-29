@@ -9,6 +9,7 @@ import java.nio.channels.SocketChannel;
 
 /**
  * A class encapsulate SocketChannel
+ * 
  * @author Hongyu Wu
  */
 public class MiddleSocketChannel {
@@ -34,15 +35,15 @@ public class MiddleSocketChannel {
       buffer.limit(len);
       socketChannel.write(buffer);
     } catch (IOException e) {
-      e.printStackTrace();
       System.out.println("Error in output");
+      e.printStackTrace();
     }
   }
 
   /**
    * 
    * @param buffer
-   *          to hold data
+   *          the buffer to hold data
    * @return the actual size of input data
    */
   public int getInput(ByteBuffer buffer) {
@@ -51,8 +52,8 @@ public class MiddleSocketChannel {
       len = socketChannel.read(buffer);
 
     } catch (IOException ioe) {
+      System.out.println("Error in receive data");
       ioe.printStackTrace();
-      System.out.println("Error in receiving data stream");
     }
     // System.out.println(len);
     return len;
@@ -67,7 +68,7 @@ public class MiddleSocketChannel {
   }
 
   /**
-   * close the socket channel 
+   * close the socket channel
    */
   public void close() {
     try {
@@ -79,13 +80,24 @@ public class MiddleSocketChannel {
 
   /**
    * register the socket channel to selector and attach the attachment
-   * @param selector the selector to register
-   * @param attachment the object to attach onto the selector
+   * 
+   * @param selector
+   *          the selector to register
+   * @param attachment
+   *          the object to attach onto the selector
    */
   public void register(Selector selector, Object attachment) {
     try {
       socketChannel.register(selector, SelectionKey.OP_READ, attachment);
     } catch (ClosedChannelException e) {
+      e.printStackTrace();
+    }
+  }
+
+  public void setNonBlocking() {
+    try {
+      socketChannel.configureBlocking(false);
+    } catch (IOException e) {
       e.printStackTrace();
     }
   }

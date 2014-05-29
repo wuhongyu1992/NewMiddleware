@@ -5,13 +5,11 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.GregorianCalendar;
+import java.sql.Timestamp;
 
 /**
- * The class to store data and info about transaction between one client and
- * server
+ * The class to store and print data and info about transaction between one
+ * client and server
  * 
  * @author Hongyu Wu
  * 
@@ -21,20 +19,17 @@ public class TransactionData {
   private MiddleServer middleServer;
   private SharedData sharedData;
   private int clientPortNum;
+  private String userId;
 
-  private int traxId;
   private long traxStart;
   private long traxEnd;
   private boolean inTrax;
   private boolean autoCommit;
 
-  private Calendar cal;
-  private Date date;
+  private Timestamp timestamp;
 
   private File file;
   private BufferedOutputStream fileOutputStream;
-
-  private int statementId;
 
   public boolean endingTrax;
 
@@ -42,25 +37,23 @@ public class TransactionData {
     sharedData = s;
     middleServer = server;
     clientPortNum = middleServer.getClientPort();
+    userId = null;
     sharedData.getMaxSize();
 
-    traxId = 0;
     inTrax = false;
     autoCommit = true;
     endingTrax = false;
 
-    statementId = 0;
+    timestamp = new Timestamp(0);
 
-    cal = new GregorianCalendar();
-    date = new Date();
-
-    file = new File(sharedData.getFilePathName() + "/Transactions/Client-"
+    file = new File(sharedData.getFilePathName() + "/Transactions/client-"
         + clientPortNum + ".txt");
     try {
       fileOutputStream = new BufferedOutputStream(new FileOutputStream(file));
     } catch (FileNotFoundException e) {
       e.printStackTrace();
     }
+
   }
 
   public void processData(byte[] data, int len, long recTime) {
@@ -68,37 +61,29 @@ public class TransactionData {
     if (!inTrax) {
       if (traxBegin(data, len)) {
         inTrax = true;
-        statementId = 1;
-        ++traxId;
         traxStart = recTime;
-        s += "------Transaction ID: " + traxId + "   Start Time: "
-            + getTimeString(traxStart) + "------\nStatement ID: " + statementId
-            + "\n";
+        timestamp.setTime(traxStart);
+        s += sharedData.txId.incrementAndGet() + "," + clientPortNum + "," + userId + ","
+            + timestamp.toString() + ",{";
         try {
           fileOutputStream.write(s.getBytes());
           fileOutputStream.write(data, 5, len - 5);
-          fileOutputStream.write('\n');
         } catch (IOException e) {
           e.printStackTrace();
         }
       }
 
     } else {
-      ++statementId;
-
-      s += "Statement ID: " + statementId + "\n";
 
       try {
-        fileOutputStream.write(s.getBytes());
+        fileOutputStream.write(';');
         fileOutputStream.write(data, 5, len - 5);
-        fileOutputStream.write('\n');
       } catch (IOException e) {
         e.printStackTrace();
       }
 
       if (traxEnd(data, len)) {
         inTrax = false;
-        statementId = 0;
         endingTrax = true;
 
       }
@@ -108,28 +93,15 @@ public class TransactionData {
 
   public void endTrax(long t) {
     traxEnd = t;
+    timestamp.setTime(traxEnd);
 
-    String s = "------" + "End Time: " + getTimeString(traxEnd)
-        + "   Latency: " + (traxEnd - traxStart) + " ms------\n\n";
+    String s = "}," + timestamp.toString() + "," + (traxEnd - traxStart) + "\n";
     try {
       fileOutputStream.write(s.getBytes());
     } catch (IOException e) {
       e.printStackTrace();
     }
     endingTrax = false;
-  }
-
-  public String getTimeString(long t) {
-    date.setTime(t);
-    cal.setTime(date);
-    String s = "";
-
-    s += cal.get(Calendar.YEAR) + "-" + (cal.get(Calendar.MONTH) + 1) + '-'
-        + cal.get(Calendar.DATE) + ' ' + cal.get(Calendar.HOUR) + ':'
-        + cal.get(Calendar.MINUTE) + ':' + cal.get(Calendar.SECOND) + ','
-        + cal.get(Calendar.MILLISECOND);
-
-    return s;
   }
 
   public void checkAutoCommit(byte[] data, int len) {
@@ -182,6 +154,14 @@ public class TransactionData {
         e.printStackTrace();
       }
     }
+  }
+
+  public String getUserId() {
+    return userId;
+  }
+
+  public void setUserId(String userId) {
+    this.userId = userId;
   }
 
 }

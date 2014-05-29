@@ -9,6 +9,7 @@ import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /** 
  * The class to place data shared by all other classes
@@ -21,6 +22,7 @@ public class SharedData {
 	private String serverIpAddr;
 	private int serverPortNum;
 	private int middlePortNum;
+	private int adminPortNum;
 	private boolean endOfProgram;
 	private boolean outputToFile;
 	private boolean clearClients;
@@ -31,6 +33,8 @@ public class SharedData {
 	private int numWorkers;
 
 	private long selectTime, inputTime, outputTime, returnTime;
+
+  public AtomicInteger txId;
 
 	public HashMap<SocketChannel, MiddleSocketChannel> socketMap;
 	public Selector selector;
@@ -224,5 +228,13 @@ public class SharedData {
 	public void addReturnTime(long t) {
 		this.returnTime += t;
 	}
+
+  public int getAdminPortNum() {
+    return adminPortNum;
+  }
+
+  public void setAdminPortNum(int adminPortNum) {
+    this.adminPortNum = adminPortNum;
+  }
 
 }

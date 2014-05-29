@@ -19,7 +19,7 @@ public class MiddleServer extends MiddleSocketChannel {
 
     socketChannel = s;
     try {
-      socketChannel.configureBlocking(false);
+      socketChannel.configureBlocking(true);
     } catch (IOException e) {
       e.printStackTrace();
     }
