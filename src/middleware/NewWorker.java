@@ -74,6 +74,7 @@ public class NewWorker extends Thread {
         if (len <= 0) {
           if (from.connectClient) {
             ((MiddleServer) from).transactionData.flushToFile();
+            ((MiddleServer) from).transactionData.closeFileOutputStream();
           }
           continue;
         }

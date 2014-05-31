@@ -5,7 +5,9 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.sql.Timestamp;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * The class to store and print data and info about transaction between one
@@ -31,6 +33,10 @@ public class TransactionData {
   private File file;
   private BufferedOutputStream fileOutputStream;
 
+  private ByteBuffer curTransaction;
+  private int bufferSize = 1024;
+
+  public ConcurrentLinkedQueue<ByteBuffer> transactions;
   public boolean endingTrax;
 
   TransactionData(SharedData s, MiddleServer server) {
@@ -43,16 +49,9 @@ public class TransactionData {
     inTrax = false;
     autoCommit = true;
     endingTrax = false;
+    transactions = new ConcurrentLinkedQueue<ByteBuffer>();
 
     timestamp = new Timestamp(0);
-
-    file = new File(sharedData.getFilePathName() + "/Transactions/client-"
-        + clientPortNum + ".txt");
-    try {
-      fileOutputStream = new BufferedOutputStream(new FileOutputStream(file));
-    } catch (FileNotFoundException e) {
-      e.printStackTrace();
-    }
 
   }
 
@@ -63,14 +62,21 @@ public class TransactionData {
         inTrax = true;
         traxStart = recTime;
         timestamp.setTime(traxStart);
-        s += sharedData.txId.incrementAndGet() + "," + clientPortNum + "," + userId + ","
-            + timestamp.toString() + ",{";
+        s += sharedData.txId.incrementAndGet() + "," + clientPortNum + ","
+            + userId + "," + timestamp.toString() + ",{";
         try {
           fileOutputStream.write(s.getBytes());
           fileOutputStream.write(data, 5, len - 5);
         } catch (IOException e) {
           e.printStackTrace();
         }
+        if (len - 5 + s.length() > bufferSize)
+          bufferSize *= 2;
+
+        curTransaction = ByteBuffer.allocate(bufferSize);
+        curTransaction.put(s.getBytes());
+        curTransaction.put(data, 5, len - 5);
+        
       }
 
     } else {
@@ -81,6 +87,17 @@ public class TransactionData {
       } catch (IOException e) {
         e.printStackTrace();
       }
+      
+      while (len - 4 > curTransaction.remaining()) {
+        ByteBuffer tmp = curTransaction;
+        bufferSize *= 2;
+        curTransaction = ByteBuffer.allocate(bufferSize);
+        tmp.limit(tmp.position());
+        tmp.position(0);
+        curTransaction.put(tmp);
+      }
+      curTransaction.put((byte) ';');
+      curTransaction.put(data, 5, len - 5);
 
       if (traxEnd(data, len)) {
         inTrax = false;
@@ -101,6 +118,18 @@ public class TransactionData {
     } catch (IOException e) {
       e.printStackTrace();
     }
+    
+    if (s.length() > curTransaction.remaining()) {
+      ByteBuffer tmp = curTransaction;
+      curTransaction = ByteBuffer.allocate(bufferSize + s.length());
+      tmp.limit(tmp.position());
+      tmp.position(0);
+      curTransaction.put(tmp);
+    }
+    curTransaction.put(s.getBytes());
+    transactions.add(curTransaction);
+    curTransaction = null;
+    
     endingTrax = false;
   }
 
@@ -162,6 +191,30 @@ public class TransactionData {
 
   public void setUserId(String userId) {
     this.userId = userId;
+  }
+
+  public void openFileOutputStream() {
+
+    file = new File(sharedData.getFilePathName() + "/Transactions/client-"
+        + clientPortNum + ".txt");
+    try {
+      fileOutputStream = new BufferedOutputStream(new FileOutputStream(file));
+    } catch (FileNotFoundException e) {
+      e.printStackTrace();
+    }
+
+  }
+
+  public void closeFileOutputStream() {
+    if (fileOutputStream == null)
+      return;
+
+    try {
+      fileOutputStream.close();
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+    fileOutputStream = null;
   }
 
 }

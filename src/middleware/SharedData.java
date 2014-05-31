@@ -33,7 +33,7 @@ public class SharedData {
 	private int numWorkers;
 
 	private long selectTime, inputTime, outputTime, returnTime;
-
+	
   public AtomicInteger txId;
 
 	public HashMap<SocketChannel, MiddleSocketChannel> socketMap;

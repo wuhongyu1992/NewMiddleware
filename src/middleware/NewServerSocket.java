@@ -56,6 +56,12 @@ public class NewServerSocket extends Thread {
     dir = new File(sharedData.getFilePathName() + "/Transactions");
     if (!dir.exists()) {
       dir.mkdirs();
+    } else {
+      for (File f : dir.listFiles()) {
+        if (!f.delete()) {
+          // TODO
+        }
+      }
     }
 
     numWorkers = sharedData.getNumWorkers();
@@ -74,7 +80,7 @@ public class NewServerSocket extends Thread {
 
     data = new byte[sharedData.getMaxSize()];
     buffer = ByteBuffer.wrap(data);
-    
+
     sharedData.txId = new AtomicInteger(0);
 
   }
@@ -160,4 +166,22 @@ public class NewServerSocket extends Thread {
     }
     return s;
   }
+
+  private void startMonitoring() {
+    for (File f : dir.listFiles()) {
+      if (!f.delete()) {
+        // TODO
+      }
+      
+      
+      
+      sharedData.setOutputToFile(true);
+    }
+  }
+
+  private void stopMonitoring() {
+    sharedData.setOutputToFile(false);
+
+  }
+
 }
