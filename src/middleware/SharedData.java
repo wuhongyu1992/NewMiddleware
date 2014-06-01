@@ -1,14 +1,21 @@
 package middleware;
 
+import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** 
@@ -25,16 +32,20 @@ public class SharedData {
 	private int adminPortNum;
 	private boolean endOfProgram;
 	private boolean outputToFile;
-	private boolean clearClients;
 	private String filePathName;
-	private File file;
-	private FileOutputStream fileOutputStream;
 	private boolean outputFlag;
 	private int numWorkers;
 
 	private long selectTime, inputTime, outputTime, returnTime;
 	
   public AtomicInteger txId;
+  
+  public ArrayList<TransactionData> allTransactionData;
+  
+  public ConcurrentSkipListMap<Integer, ConcurrentLinkedQueue<ByteBuffer>> allTransactions;
+  
+  public BufferedOutputStream allLogFileOutputStream;
+
 
 	public HashMap<SocketChannel, MiddleSocketChannel> socketMap;
 	public Selector selector;
@@ -47,7 +58,6 @@ public class SharedData {
 		outputToFile = false;
 		filePathName = null;
 		outputFlag = false;
-		clearClients = false;
 		
 	}
 
@@ -67,22 +77,6 @@ public class SharedData {
 		keyIterator.remove();
 		return key;
 
-	}
-
-	public void setFileOutputStream() {
-		file = new File(filePathName + "/Transactions/AllTransactions.txt");
-		int i = 0;
-		while (file.exists() && !file.isDirectory()) {
-			++i;
-			file = new File(filePathName + "/Transactions/AllTransactions(" + i
-					+ ").txt");
-		}
-
-		try {
-			fileOutputStream = new FileOutputStream(file);
-		} catch (FileNotFoundException e1) {
-			e1.printStackTrace();
-		}
 	}
 
 	public int getMaxSize() {
@@ -151,10 +145,6 @@ public class SharedData {
 
 	public void setFilePathName(String filePathName) {
 		this.filePathName = filePathName;
-		file = new File(filePathName + "/Transactions");
-		if (!file.exists()) {
-			file.mkdirs();
-		}
 	}
 
 	public boolean isOutputFlag() {
@@ -163,14 +153,6 @@ public class SharedData {
 
 	public void setOutputFlag(boolean outputFlag) {
 		this.outputFlag = outputFlag;
-	}
-
-	public boolean isClearClients() {
-		return clearClients;
-	}
-
-	public void setClearClients(boolean clearClients) {
-		this.clearClients = clearClients;
 	}
 
 	public int getNumWorkers() {

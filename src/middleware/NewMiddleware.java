@@ -51,7 +51,6 @@ public class NewMiddleware {
       }
 
       if (s.contentEquals("p")) {
-        sharedData.setClearClients(true);
       }
 
     }

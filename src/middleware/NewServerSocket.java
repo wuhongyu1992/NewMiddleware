@@ -1,14 +1,23 @@
 package middleware;
 
+import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
+import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -29,6 +38,7 @@ public class NewServerSocket extends Thread {
   private NewWorker[] workers;
   private byte[] data;
   private ByteBuffer buffer;
+  private StringBuilder stringBuilder;
 
   NewServerSocket(SharedData s) {
     sharedData = s;
@@ -82,6 +92,8 @@ public class NewServerSocket extends Thread {
     buffer = ByteBuffer.wrap(data);
 
     sharedData.txId = new AtomicInteger(0);
+    sharedData.allTransactionData = new ArrayList<TransactionData>();
+    sharedData.allTransactions = new ConcurrentSkipListMap<Integer, ConcurrentLinkedQueue<ByteBuffer>>();
 
   }
 
@@ -91,8 +103,8 @@ public class NewServerSocket extends Thread {
 
       try {
         selector.selectNow();
-      } catch (IOException e1) {
-        e1.printStackTrace();
+      } catch (IOException e) {
+        e.printStackTrace();
       }
 
       keyIterator = selector.selectedKeys().iterator();
@@ -110,7 +122,6 @@ public class NewServerSocket extends Thread {
             }
 
             if (socketChannel != null) {
-              sharedData.setClearClients(false);
 
               MiddleClient middleClient = new MiddleClient(
                   sharedData.getServerIpAddr(), sharedData.getServerPortNum());
@@ -134,16 +145,23 @@ public class NewServerSocket extends Thread {
               middleServer.setNonBlocking();
               middleClient.setNonBlocking();
 
+              if (sharedData.isOutputToFile()) {
+                transactionData.openFileOutputStream();
+              }
+
+              sharedData.allTransactionData.add(transactionData);
+
+              workers[count % numWorkers].socketMap.put(
+                  middleServer.socketChannel, middleServer);
+              workers[count % numWorkers].socketMap.put(
+                  middleClient.socketChannel, middleClient);
+
               middleServer.register(workers[count % numWorkers].selector,
                   middleClient);
 
               middleClient.register(workers[count % numWorkers].selector,
                   middleServer);
 
-              workers[count % numWorkers].socketMap.put(
-                  middleServer.socketChannel, middleServer);
-              workers[count % numWorkers].socketMap.put(
-                  middleClient.socketChannel, middleClient);
               ++count;
             }
           } else if (key.channel() == adminServerSocketChannel) {
@@ -158,13 +176,43 @@ public class NewServerSocket extends Thread {
   }
 
   private String getUserId(byte[] b) {
-    String s = "";
     int i = 36;
     while (b[i] != '\0' && i < b.length) {
-      s += (char) b[i];
+      stringBuilder.append((char) b[i]);
       ++i;
     }
-    return s;
+    return stringBuilder.toString();
+  }
+
+  private void printAllTransactions() {
+    ConcurrentLinkedQueue<ByteBuffer> tmpQ = sharedData.allTransactions
+        .firstEntry().getValue();
+    int tmpK = sharedData.allTransactions.firstEntry().getKey();
+    ByteBuffer tmpB = tmpQ.poll();
+
+    try {
+      sharedData.allLogFileOutputStream.write(tmpB.array(), 0, tmpB.position());
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+
+    sharedData.allTransactions.remove(tmpK);
+    if (!tmpQ.isEmpty()) {
+      int newK = getNewKey(tmpQ.peek());
+      sharedData.allTransactions.put(newK, tmpQ);
+    }
+
+  }
+
+  private int getNewKey(ByteBuffer buf) {
+    byte[] b = buf.array();
+    int i = 0;
+    int newK = 0;
+    while (b[i] != ',') {
+      newK = newK * 10 + (int) (b[i] - '0');
+      ++i;
+    }
+    return newK;
   }
 
   private void startMonitoring() {
@@ -172,15 +220,44 @@ public class NewServerSocket extends Thread {
       if (!f.delete()) {
         // TODO
       }
-      
-      
-      
-      sharedData.setOutputToFile(true);
     }
+
+    for (int i = 0; i < sharedData.allTransactionData.size();) {
+      TransactionData tmp = sharedData.allTransactionData.get(i);
+      if (tmp.isAlive) {
+        tmp.openFileOutputStream();
+        ++i;
+      } else {
+        sharedData.allTransactionData.remove(i);
+      }
+    }
+
+    try {
+      sharedData.allLogFileOutputStream = new BufferedOutputStream(
+          new FileOutputStream(new File(sharedData.getFilePathName()
+              + "/Transactions/allLogs")));
+    } catch (FileNotFoundException e) {
+      e.printStackTrace();
+    }
+
+    sharedData.txId.set(0);
+
+    sharedData.setOutputToFile(true);
+
   }
 
   private void stopMonitoring() {
     sharedData.setOutputToFile(false);
+
+    for (int i = 0; i < sharedData.allTransactionData.size();) {
+      TransactionData tmp = sharedData.allTransactionData.get(i);
+      if (tmp.isAlive) {
+        tmp.closeFileOutputStream();
+        ++i;
+      } else {
+        sharedData.allTransactionData.remove(i);
+      }
+    }
 
   }
 

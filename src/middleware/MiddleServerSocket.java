@@ -57,7 +57,6 @@ public class MiddleServerSocket extends Thread {
 			}
 
 			if (socketChannel != null) {
-				sharedData.setClearClients(false);
 
 				MiddleServer middleServer = new MiddleServer(socketChannel);
 				MiddleClient middleClient = new MiddleClient(

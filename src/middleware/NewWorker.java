@@ -42,7 +42,7 @@ public class NewWorker extends Thread {
 
   public void run() {
 
-    while (!sharedData.isClearClients()) {
+    while (!sharedData.isEndOfProgram()) {
       ts0 = System.currentTimeMillis();
 
       try {
@@ -73,8 +73,10 @@ public class NewWorker extends Thread {
 
         if (len <= 0) {
           if (from.connectClient) {
-            ((MiddleServer) from).transactionData.flushToFile();
-            ((MiddleServer) from).transactionData.closeFileOutputStream();
+            TransactionData tmp = ((MiddleServer) from).transactionData;
+            tmp.flushToFile();
+            tmp.closeFileOutputStream();
+            tmp.isAlive = false;
           }
           continue;
         }

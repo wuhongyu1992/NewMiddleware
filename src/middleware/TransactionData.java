@@ -30,6 +30,8 @@ public class TransactionData {
 
   private Timestamp timestamp;
 
+  private int TxID;
+
   private File file;
   private BufferedOutputStream fileOutputStream;
 
@@ -38,6 +40,7 @@ public class TransactionData {
 
   public ConcurrentLinkedQueue<ByteBuffer> transactions;
   public boolean endingTrax;
+  public boolean isAlive;
 
   TransactionData(SharedData s, MiddleServer server) {
     sharedData = s;
@@ -49,6 +52,7 @@ public class TransactionData {
     inTrax = false;
     autoCommit = true;
     endingTrax = false;
+    isAlive = true;
     transactions = new ConcurrentLinkedQueue<ByteBuffer>();
 
     timestamp = new Timestamp(0);
@@ -62,8 +66,9 @@ public class TransactionData {
         inTrax = true;
         traxStart = recTime;
         timestamp.setTime(traxStart);
-        s += sharedData.txId.incrementAndGet() + "," + clientPortNum + ","
-            + userId + "," + timestamp.toString() + ",{";
+        TxID = sharedData.txId.incrementAndGet();
+        s += TxID + "," + clientPortNum + "," + userId + ","
+            + timestamp.toString() + ",{";
         try {
           fileOutputStream.write(s.getBytes());
           fileOutputStream.write(data, 5, len - 5);
@@ -76,7 +81,7 @@ public class TransactionData {
         curTransaction = ByteBuffer.allocate(bufferSize);
         curTransaction.put(s.getBytes());
         curTransaction.put(data, 5, len - 5);
-        
+
       }
 
     } else {
@@ -87,7 +92,7 @@ public class TransactionData {
       } catch (IOException e) {
         e.printStackTrace();
       }
-      
+
       while (len - 4 > curTransaction.remaining()) {
         ByteBuffer tmp = curTransaction;
         bufferSize *= 2;
@@ -118,7 +123,7 @@ public class TransactionData {
     } catch (IOException e) {
       e.printStackTrace();
     }
-    
+
     if (s.length() > curTransaction.remaining()) {
       ByteBuffer tmp = curTransaction;
       curTransaction = ByteBuffer.allocate(bufferSize + s.length());
@@ -128,8 +133,11 @@ public class TransactionData {
     }
     curTransaction.put(s.getBytes());
     transactions.add(curTransaction);
+    if (transactions.size() == 1) {
+      sharedData.allTransactions.putIfAbsent(TxID, transactions);
+    }
     curTransaction = null;
-    
+
     endingTrax = false;
   }
 
