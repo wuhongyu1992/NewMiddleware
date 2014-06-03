@@ -38,9 +38,11 @@ public class NewMiddleware {
         sharedData.setEndOfProgram(true);
       }
       if (s.contentEquals("o")) {
+        serverSocket.startMonitoring();
         sharedData.setOutputToFile(true);
       }
       if (s.contentEquals("c")) {
+        serverSocket.stopMonitoring();
         sharedData.setOutputToFile(false);
       }
       if (s.contentEquals("f")) {

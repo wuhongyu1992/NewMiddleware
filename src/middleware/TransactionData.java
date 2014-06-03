@@ -135,6 +135,7 @@ public class TransactionData {
     transactions.add(curTransaction);
     if (transactions.size() == 1) {
       sharedData.allTransactions.putIfAbsent(TxID, transactions);
+      System.out.println("put in all");
     }
     curTransaction = null;
 

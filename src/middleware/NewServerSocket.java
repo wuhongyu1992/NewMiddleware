@@ -39,6 +39,7 @@ public class NewServerSocket extends Thread {
   private byte[] data;
   private ByteBuffer buffer;
   private StringBuilder stringBuilder;
+  private boolean endingTrax;
 
   NewServerSocket(SharedData s) {
     sharedData = s;
@@ -88,9 +89,11 @@ public class NewServerSocket extends Thread {
       workers[i].start();
     }
 
+    stringBuilder = new StringBuilder();
     data = new byte[sharedData.getMaxSize()];
     buffer = ByteBuffer.wrap(data);
-
+    endingTrax = false;
+    
     sharedData.txId = new AtomicInteger(0);
     sharedData.allTransactionData = new ArrayList<TransactionData>();
     sharedData.allTransactions = new ConcurrentSkipListMap<Integer, ConcurrentLinkedQueue<ByteBuffer>>();
@@ -170,6 +173,17 @@ public class NewServerSocket extends Thread {
         }
       }
 
+      if (!sharedData.allTransactions.isEmpty()) {
+        printAllTransactions();
+      } else if (endingTrax) {
+        try {
+          sharedData.allLogFileOutputStream.flush();
+          sharedData.allLogFileOutputStream.close();
+        } catch (IOException e) {
+          e.printStackTrace();
+        }
+        endingTrax = false;
+      }
     }
 
     System.out.println("server socket end");
@@ -201,6 +215,7 @@ public class NewServerSocket extends Thread {
       int newK = getNewKey(tmpQ.peek());
       sharedData.allTransactions.put(newK, tmpQ);
     }
+    System.out.println("print all");
 
   }
 
@@ -215,7 +230,7 @@ public class NewServerSocket extends Thread {
     return newK;
   }
 
-  private void startMonitoring() {
+  public void startMonitoring() {
     for (File f : dir.listFiles()) {
       if (!f.delete()) {
         // TODO
@@ -246,8 +261,9 @@ public class NewServerSocket extends Thread {
 
   }
 
-  private void stopMonitoring() {
+  public void stopMonitoring() {
     sharedData.setOutputToFile(false);
+    endingTrax = true;
 
     for (int i = 0; i < sharedData.allTransactionData.size();) {
       TransactionData tmp = sharedData.allTransactionData.get(i);
