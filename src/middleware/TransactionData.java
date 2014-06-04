@@ -38,7 +38,7 @@ public class TransactionData {
   private ByteBuffer curTransaction;
   private int bufferSize = 1024;
 
-//  public ConcurrentLinkedQueue<ByteBuffer> transactions;
+  // public ConcurrentLinkedQueue<ByteBuffer> transactions;
   public boolean endingTrax;
   public boolean isAlive;
 
@@ -53,7 +53,7 @@ public class TransactionData {
     autoCommit = true;
     endingTrax = false;
     isAlive = true;
-//    transactions = new ConcurrentLinkedQueue<ByteBuffer>();
+    // transactions = new ConcurrentLinkedQueue<ByteBuffer>();
 
     timestamp = new Timestamp(0);
 
@@ -66,15 +66,8 @@ public class TransactionData {
         inTrax = true;
         traxStart = recTime;
         timestamp.setTime(traxStart);
-        TxID = sharedData.txId.incrementAndGet();
-        s += TxID + "," + clientPortNum + "," + userId + ","
-            + timestamp.toString() + ",{";
-        try {
-          fileOutputStream.write(s.getBytes());
-          fileOutputStream.write(data, 5, len - 5);
-        } catch (IOException e) {
-          e.printStackTrace();
-        }
+        s += "," + clientPortNum + "," + userId + "," + timestamp.toString()
+            + ",{";
         if (len - 5 + s.length() > bufferSize)
           bufferSize *= 2;
 
@@ -85,13 +78,6 @@ public class TransactionData {
       }
 
     } else {
-
-      try {
-        fileOutputStream.write(';');
-        fileOutputStream.write(data, 5, len - 5);
-      } catch (IOException e) {
-        e.printStackTrace();
-      }
 
       while (len - 4 > curTransaction.remaining()) {
         ByteBuffer tmp = curTransaction;
@@ -118,11 +104,6 @@ public class TransactionData {
     timestamp.setTime(traxEnd);
 
     String s = "}," + timestamp.toString() + "," + (traxEnd - traxStart) + "\n";
-    try {
-      fileOutputStream.write(s.getBytes());
-    } catch (IOException e) {
-      e.printStackTrace();
-    }
 
     if (s.length() > curTransaction.remaining()) {
       ByteBuffer tmp = curTransaction;
@@ -132,7 +113,16 @@ public class TransactionData {
       curTransaction.put(tmp);
     }
     curTransaction.put(s.getBytes());
+    TxID = sharedData.txId.incrementAndGet();
     sharedData.allTransactions.put(TxID, curTransaction);
+    try {
+      fileOutputStream.write(Integer.toString(TxID).getBytes());
+      fileOutputStream.write(curTransaction.array(), 0,
+          curTransaction.position());
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+
     curTransaction = null;
 
     endingTrax = false;

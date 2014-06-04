@@ -199,27 +199,17 @@ public class NewServerSocket extends Thread {
   }
 
   private void printAllTransactions() {
-    if (sharedData.allTransactions.isEmpty())
-      return;
-    ByteBuffer tmpB = sharedData.allTransactions.firstEntry().getValue();
+    int TxID = sharedData.allTransactions.firstKey();
+    ByteBuffer tmpB = sharedData.allTransactions.pollFirstEntry().getValue();
 
     try {
+      sharedData.allLogFileOutputStream
+          .write(Integer.toString(TxID).getBytes());
       sharedData.allLogFileOutputStream.write(tmpB.array(), 0, tmpB.position());
     } catch (IOException e) {
       e.printStackTrace();
     }
 
-  }
-
-  private int getNewKey(ByteBuffer buf) {
-    byte[] b = buf.array();
-    int i = 0;
-    int newK = 0;
-    while (b[i] != ',') {
-      newK = newK * 10 + (int) (b[i] - '0');
-      ++i;
-    }
-    return newK;
   }
 
   public void startMonitoring() {
