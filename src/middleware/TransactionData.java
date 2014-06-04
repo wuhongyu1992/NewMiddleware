@@ -38,7 +38,7 @@ public class TransactionData {
   private ByteBuffer curTransaction;
   private int bufferSize = 1024;
 
-  public ConcurrentLinkedQueue<ByteBuffer> transactions;
+//  public ConcurrentLinkedQueue<ByteBuffer> transactions;
   public boolean endingTrax;
   public boolean isAlive;
 
@@ -53,7 +53,7 @@ public class TransactionData {
     autoCommit = true;
     endingTrax = false;
     isAlive = true;
-    transactions = new ConcurrentLinkedQueue<ByteBuffer>();
+//    transactions = new ConcurrentLinkedQueue<ByteBuffer>();
 
     timestamp = new Timestamp(0);
 
@@ -132,11 +132,7 @@ public class TransactionData {
       curTransaction.put(tmp);
     }
     curTransaction.put(s.getBytes());
-    transactions.add(curTransaction);
-    if (transactions.size() == 1) {
-      sharedData.allTransactions.putIfAbsent(TxID, transactions);
-      System.out.println("put in all");
-    }
+    sharedData.allTransactions.add(curTransaction);
     curTransaction = null;
 
     endingTrax = false;

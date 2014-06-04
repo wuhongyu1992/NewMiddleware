@@ -93,10 +93,10 @@ public class NewServerSocket extends Thread {
     data = new byte[sharedData.getMaxSize()];
     buffer = ByteBuffer.wrap(data);
     endingTrax = false;
-    
+
     sharedData.txId = new AtomicInteger(0);
     sharedData.allTransactionData = new ArrayList<TransactionData>();
-    sharedData.allTransactions = new ConcurrentSkipListMap<Integer, ConcurrentLinkedQueue<ByteBuffer>>();
+    sharedData.allTransactions = new ConcurrentLinkedQueue<ByteBuffer>();
 
   }
 
@@ -191,7 +191,7 @@ public class NewServerSocket extends Thread {
 
   private String getUserId(byte[] b) {
     int i = 36;
-    while (b[i] != '\0' && i < b.length) {
+    while (b[i] > (byte) 32 && b[i] < (byte) 127 && i < b.length) {
       stringBuilder.append((char) b[i]);
       ++i;
     }
@@ -199,23 +199,15 @@ public class NewServerSocket extends Thread {
   }
 
   private void printAllTransactions() {
-    ConcurrentLinkedQueue<ByteBuffer> tmpQ = sharedData.allTransactions
-        .firstEntry().getValue();
-    int tmpK = sharedData.allTransactions.firstEntry().getKey();
-    ByteBuffer tmpB = tmpQ.poll();
+    ByteBuffer tmpB = sharedData.allTransactions.poll();
+    if (tmpB == null)
+      return;
 
     try {
       sharedData.allLogFileOutputStream.write(tmpB.array(), 0, tmpB.position());
     } catch (IOException e) {
       e.printStackTrace();
     }
-
-    sharedData.allTransactions.remove(tmpK);
-    if (!tmpQ.isEmpty()) {
-      int newK = getNewKey(tmpQ.peek());
-      sharedData.allTransactions.put(newK, tmpQ);
-    }
-    System.out.println("print all");
 
   }
 
