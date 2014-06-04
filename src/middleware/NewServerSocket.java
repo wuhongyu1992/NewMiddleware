@@ -38,7 +38,6 @@ public class NewServerSocket extends Thread {
   private NewWorker[] workers;
   private byte[] data;
   private ByteBuffer buffer;
-  private StringBuilder stringBuilder;
   private boolean endingTrax;
 
   NewServerSocket(SharedData s) {
@@ -89,7 +88,6 @@ public class NewServerSocket extends Thread {
       workers[i].start();
     }
 
-    stringBuilder = new StringBuilder();
     data = new byte[sharedData.getMaxSize()];
     buffer = ByteBuffer.wrap(data);
     endingTrax = false;
@@ -191,6 +189,7 @@ public class NewServerSocket extends Thread {
 
   private String getUserId(byte[] b) {
     int i = 36;
+    StringBuilder stringBuilder = new StringBuilder();
     while (b[i] > (byte) 32 && b[i] < (byte) 127 && i < b.length) {
       stringBuilder.append((char) b[i]);
       ++i;
@@ -248,6 +247,7 @@ public class NewServerSocket extends Thread {
     }
 
     sharedData.txId.set(0);
+    
 
     sharedData.setOutputToFile(true);
 
