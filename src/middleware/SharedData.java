@@ -42,7 +42,7 @@ public class SharedData {
   
   public ArrayList<TransactionData> allTransactionData;
   
-  public ConcurrentLinkedQueue<ByteBuffer> allTransactions;
+  public ConcurrentSkipListMap<Integer, ByteBuffer> allTransactions;
   
   public BufferedOutputStream allLogFileOutputStream;
 

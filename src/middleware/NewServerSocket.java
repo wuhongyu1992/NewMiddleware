@@ -94,7 +94,7 @@ public class NewServerSocket extends Thread {
 
     sharedData.txId = new AtomicInteger(0);
     sharedData.allTransactionData = new ArrayList<TransactionData>();
-    sharedData.allTransactions = new ConcurrentLinkedQueue<ByteBuffer>();
+    sharedData.allTransactions = new ConcurrentSkipListMap<Integer, ByteBuffer>();
 
   }
 
@@ -181,6 +181,7 @@ public class NewServerSocket extends Thread {
           e.printStackTrace();
         }
         endingTrax = false;
+        System.out.println("print all log files");
       }
     }
 
@@ -198,9 +199,9 @@ public class NewServerSocket extends Thread {
   }
 
   private void printAllTransactions() {
-    ByteBuffer tmpB = sharedData.allTransactions.poll();
-    if (tmpB == null)
+    if (sharedData.allTransactions.isEmpty())
       return;
+    ByteBuffer tmpB = sharedData.allTransactions.firstEntry().getValue();
 
     try {
       sharedData.allLogFileOutputStream.write(tmpB.array(), 0, tmpB.position());
@@ -247,7 +248,6 @@ public class NewServerSocket extends Thread {
     }
 
     sharedData.txId.set(0);
-    
 
     sharedData.setOutputToFile(true);
 

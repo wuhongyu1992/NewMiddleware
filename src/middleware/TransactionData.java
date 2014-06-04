@@ -132,7 +132,7 @@ public class TransactionData {
       curTransaction.put(tmp);
     }
     curTransaction.put(s.getBytes());
-    sharedData.allTransactions.add(curTransaction);
+    sharedData.allTransactions.put(TxID, curTransaction);
     curTransaction = null;
 
     endingTrax = false;
