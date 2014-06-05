@@ -48,13 +48,23 @@ public class NewServerSocket extends Thread {
           new InetSocketAddress(s.getMiddlePortNum()));
       serverSocketChannel.configureBlocking(false);
 
+    } catch (IOException e) {
+      System.out.println("Error: cannot bind to port " + s.getMiddlePortNum());
+      e.printStackTrace();
+    }
+
+    try {
       adminServerSocketChannel = ServerSocketChannel.open();
       adminServerSocketChannel.socket().bind(
           new InetSocketAddress(s.getAdminPortNum()));
       adminServerSocketChannel.configureBlocking(false);
+    } catch (IOException e) {
+      System.out.println("Error: cannot bind to port " + s.getAdminPortNum());
+      e.printStackTrace();
+    }
 
+    try {
       selector = Selector.open();
-
       serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
       adminServerSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
     } catch (IOException e) {

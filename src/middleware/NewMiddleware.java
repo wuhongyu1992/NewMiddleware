@@ -5,16 +5,45 @@ import java.util.Scanner;
 public class NewMiddleware {
 
   public static void main(String[] args) {
+    if (args.length < 4) {
+      System.out.println("Error: too few arguments");
+      System.out
+          .println("Usage: ./middleware <listening_port> <MySQL IP> <MySQL Port> <Thread Number>");
+      return;
+    }
     SharedData sharedData = new SharedData();
+    int middlePortNum = Integer.parseInt(args[0]);
+    if (middlePortNum > 65536 || middlePortNum < 0) {
+      System.out.println("Error: invalid listening port: " + middlePortNum);
+      return;
+    }
+
+    String serverIpAddr = args[1];
+    int serverPortNum = Integer.parseInt(args[2]);
+    if (serverPortNum > 65536 || serverPortNum < 0) {
+      System.out.println("Error: invalid server port: " + serverPortNum);
+      return;
+    }
+
+    int numThreads = Integer.parseInt(args[3]);
+    if (numThreads <= 0) {
+      System.out.println("Error: invalid thread number: " + numThreads);
+      return;
+    }
+    
+    int adminPortNum = 3334;
+    if (args.length > 4) {
+      adminPortNum = Integer.parseInt(args[4]);
+    }
 
     sharedData.setMaxSize(16 * 1024);
-    sharedData.setServerIpAddr("127.0.0.1");
-    sharedData.setServerPortNum(3306);
-    sharedData.setMiddlePortNum(3320);
-    sharedData.setAdminPortNum(3334);
+    sharedData.setServerIpAddr(serverIpAddr);
+    sharedData.setServerPortNum(serverPortNum);
+    sharedData.setMiddlePortNum(middlePortNum);
+    sharedData.setAdminPortNum(adminPortNum);
     sharedData.setFilePathName(".");
     sharedData.setOutputToFile(false);
-    sharedData.setNumWorkers(4);
+    sharedData.setNumWorkers(numThreads);
 
     // MiddleServerSocket middleServerSock = new MiddleServerSocket(sharedData);
     // middleServerSock.start();

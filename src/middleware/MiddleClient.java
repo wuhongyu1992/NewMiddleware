@@ -23,7 +23,8 @@ public class MiddleClient extends MiddleSocketChannel {
           .open(new InetSocketAddress(ipAddr, portNum));
       socketChannel.configureBlocking(true);
     } catch (IOException ioe) {
-      System.out.println("Error in connecting to server");
+      System.out
+          .println("Error: fails to connect to server, please check server ip or port");
     }
   }
 
