@@ -3,4 +3,4 @@ BIN_PATH=bin
 SRC_PATH=src/middleware
 rm -rf $BIN_PATH
 mkdir $BIN_PATH
-javac -d $BIN_PATH $SRC_PATH/NewMiddleware.java $SRC_PATH/MiddleClient.java $SRC_PATH/MiddleServer.java $SRC_PATH/MiddleServerSocket.java $SRC_PATH/MiddleSocketChannel.java $SRC_PATH/SharedData.java $SRC_PATH/MiddleWorker.java $SRC_PATH/NewServerSocket.java $SRC_PATH/NewWorker.java $SRC_PATH/RequestHandler.java $SRC_PATH/RequestWorker.java $SRC_PATH/TransactionData.java
+javac -d $BIN_PATH $SRC_PATH/*.java
