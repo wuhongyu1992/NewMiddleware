@@ -28,6 +28,10 @@ public class MiddleSocketChannel {
   public MiddleSocketChannel() {
     socketChannel = null;
   }
+  
+  public MiddleSocketChannel(SocketChannel inSock) {
+    socketChannel = inSock;
+  }
 
   public void sendOutput(ByteBuffer buffer, int len) {
     try {

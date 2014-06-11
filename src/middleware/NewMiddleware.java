@@ -5,10 +5,10 @@ import java.util.Scanner;
 public class NewMiddleware {
 
   public static void main(String[] args) {
-    if (args.length < 4) {
+    if (args.length < 5) {
       System.out.println("Error: too few arguments");
       System.out
-          .println("Usage: ./middleware <listening_port> <MySQL IP> <MySQL Port> <Thread Number>");
+          .println("Usage: ./middleware <listening_port> <MySQL IP> <MySQL Port> <Thread Number> <UserPasswordFile>");
       return;
     }
     SharedData sharedData = new SharedData();
@@ -30,9 +30,11 @@ public class NewMiddleware {
       System.out.println("Error: invalid thread number: " + numThreads);
       return;
     }
-    
+
+    sharedData.setUserInfoFilePath(args[4]);
+
     int adminPortNum = 3334;
-    if (args.length > 4) {
+    if (args.length > 5) {
       adminPortNum = Integer.parseInt(args[4]);
     }
 

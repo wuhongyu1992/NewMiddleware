@@ -7,7 +7,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.sql.Timestamp;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * The class to store and print data and info about transaction between one

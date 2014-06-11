@@ -2,11 +2,12 @@ package middleware;
 
 import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.PrintStream;
 import java.net.InetSocketAddress;
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
@@ -14,11 +15,11 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.List;
-import java.util.Map.Entry;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 /**
  * The thread to listen to middle port and construct connection to both clients
@@ -28,6 +29,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * 
  */
 public class NewServerSocket extends Thread {
+
   private SharedData sharedData;
   private ServerSocketChannel serverSocketChannel;
   private ServerSocketChannel adminServerSocketChannel;
@@ -39,6 +41,15 @@ public class NewServerSocket extends Thread {
   private byte[] data;
   private ByteBuffer buffer;
   private boolean endingTrax;
+  private boolean sendingFiles;
+
+  private Map<String, byte[]> userInfo;
+
+  private String zipFileName = "LogFiles.zip";
+
+  private byte[] fileBuffer;
+
+  private MiddleSocketChannel curUser;
 
   NewServerSocket(SharedData s) {
     sharedData = s;
@@ -73,7 +84,8 @@ public class NewServerSocket extends Thread {
 
     keyIterator = null;
 
-    dir = new File(sharedData.getFilePathName() + "/Transactions");
+    dir = new File(sharedData.getFilePathName() + File.separator
+        + "Transactions");
     if (!dir.exists()) {
       dir.mkdirs();
     } else {
@@ -101,10 +113,17 @@ public class NewServerSocket extends Thread {
     data = new byte[sharedData.getMaxSize()];
     buffer = ByteBuffer.wrap(data);
     endingTrax = false;
+    sendingFiles = false;
 
     sharedData.txId = new AtomicInteger(0);
     sharedData.allTransactionData = new ArrayList<TransactionData>();
     sharedData.allTransactions = new ConcurrentSkipListMap<Integer, ByteBuffer>();
+
+    userInfo = Encrypt.getUsrMap(sharedData.getUserInfoFilePath());
+
+    fileBuffer = new byte[1024];
+
+    curUser = null;
 
   }
 
@@ -176,6 +195,149 @@ public class NewServerSocket extends Thread {
               ++count;
             }
           } else if (key.channel() == adminServerSocketChannel) {
+            if (key.isAcceptable()) {
+              SocketChannel sock = null;
+              try {
+                sock = adminServerSocketChannel.accept();
+              } catch (IOException e) {
+                e.printStackTrace();
+              }
+              if (sock != null) {
+                try {
+                  sock.configureBlocking(true);
+                } catch (IOException e) {
+                  e.printStackTrace();
+                }
+                MiddleSocketChannel middleSocketChannel = new MiddleSocketChannel(
+                    sock);
+                middleSocketChannel.setNonBlocking();
+                buffer.clear();
+                int len = middleSocketChannel.getInput(buffer);
+                buffer.limit(len);
+                buffer.position(0);
+
+                int packetID = 0;
+                long packetLength = -1;
+                boolean isValidPacket = true;
+                String response;
+
+                try {
+                  packetID = buffer.getInt();
+                  packetLength = buffer.getLong();
+                } catch (BufferUnderflowException e) {
+                  buffer.clear();
+                  buffer.putInt(102);
+                  response = "Invalid packet header";
+                  buffer.putLong(response.length());
+                  buffer.put(response.getBytes());
+                  isValidPacket = false;
+                  middleSocketChannel.sendOutput(buffer, buffer.position());
+                  middleSocketChannel.close();
+                }
+
+                if (isValidPacket) {
+
+                  if (packetID == 200 || packetID == 300) {
+                    buffer.clear();
+                    buffer.putInt(102);
+                    response = "You have not been registered";
+                    buffer.putLong(response.length());
+                    buffer.put(response.getBytes());
+                    middleSocketChannel.sendOutput(buffer, buffer.position());
+                    middleSocketChannel.close();
+                  } else if (packetID != 100) {
+                    buffer.clear();
+                    buffer.putInt(102);
+                    response = "Invalid packet ID";
+                    buffer.putLong(response.length());
+                    buffer.put(response.getBytes());
+                    middleSocketChannel.sendOutput(buffer, buffer.position());
+                    middleSocketChannel.close();
+                  } else if (packetLength == -1) {
+                    buffer.clear();
+                    buffer.putInt(102);
+                    response = "Invalid packet length";
+                    buffer.putLong(response.length());
+                    buffer.put(response.getBytes());
+                    middleSocketChannel.sendOutput(buffer, buffer.position());
+                    middleSocketChannel.close();
+                  } else {
+                    String userID = null;
+                    byte[] password = null;
+                    byte[] packet = new byte[(int) packetLength];
+                    buffer.get(packet, 12, (int) packetLength);
+                    if (parseLogInPacket(packet, userID, password)
+                        && userInfo.get(userID).equals(
+                            Encrypt.eccrypt(password))) {
+                      buffer.clear();
+                      buffer.putInt(101);
+                      buffer.putLong(0);
+                      middleSocketChannel.sendOutput(buffer, buffer.position());
+                      middleSocketChannel.register(selector,
+                          middleSocketChannel);
+                    } else {
+                      buffer.clear();
+                      buffer.putInt(102);
+                      response = "Invalid User ID or password";
+                      buffer.putLong(response.length());
+                      buffer.put(response.getBytes());
+                      middleSocketChannel.sendOutput(buffer, buffer.position());
+                      middleSocketChannel.close();
+                    }
+                  }
+                }
+              }
+            } else if (key.isReadable()) {
+              MiddleSocketChannel tmp = (MiddleSocketChannel) key.attachment();
+              if (tmp.getInput(buffer) >= 4) {
+                buffer.clear();
+                buffer.limit(buffer.position());
+                buffer.position(0);
+                int packetID = buffer.getInt();
+                if (packetID == 200) {
+                  if (sharedData.isOutputToFile() || endingTrax || sendingFiles) {
+                    String response = "Current monitoring not finished";
+                    buffer.clear();
+                    buffer.putInt(202);
+                    buffer.putLong(response.length());
+                    buffer.put(response.getBytes());
+                    tmp.sendOutput(buffer, buffer.position());
+                  } else {
+                    startMonitoring();
+                    buffer.clear();
+                    buffer.putInt(201);
+                    buffer.putLong(0);
+                    tmp.sendOutput(buffer, buffer.position());
+                    curUser = tmp;
+                  }
+                } else if (packetID == 300) {
+                  if (!sharedData.isOutputToFile()) {
+                    String response = "No monitoring running";
+                    buffer.clear();
+                    buffer.putInt(302);
+                    buffer.putLong(response.length());
+                    buffer.put(response.getBytes());
+                    tmp.sendOutput(buffer, buffer.position());
+                  } else if (tmp != curUser) {
+                    String response = "Monitoring running by other user";
+                    buffer.clear();
+                    buffer.putInt(302);
+                    buffer.putLong(response.length());
+                    buffer.put(response.getBytes());
+                    tmp.sendOutput(buffer, buffer.position());
+                  } else if (endingTrax) {
+                    String response = "Writing log files, please wait";
+                    buffer.clear();
+                    buffer.putInt(302);
+                    buffer.putLong(response.length());
+                    buffer.put(response.getBytes());
+                    tmp.sendOutput(buffer, buffer.position());
+                  } else {
+                    stopMonitoring();
+                  }
+                }
+              }
+            }
 
           }
         }
@@ -191,11 +353,126 @@ public class NewServerSocket extends Thread {
           e.printStackTrace();
         }
         endingTrax = false;
-        System.out.println("print all log files");
+
+        if (zipAllFiles()) {
+          File zipFile = new File(zipFileName);
+
+          FileInputStream fis = null;
+          try {
+            fis = new FileInputStream(zipFile);
+          } catch (FileNotFoundException e) {
+            e.printStackTrace();
+          }
+          buffer.clear();
+          buffer.putInt(301);
+          buffer.putLong(zipFile.length());
+          curUser.sendOutput(buffer, buffer.position());
+          int len = 0;
+          try {
+            while ((len = fis.read(data)) > 0) {
+              curUser.sendOutput(buffer, len);
+            }
+          } catch (IOException e) {
+            e.printStackTrace();
+          }
+        } else {
+          String response = "fail to compress log files";
+          buffer.clear();
+          buffer.putInt(302);
+          buffer.putLong(response.length());
+          buffer.put(response.getBytes());
+          curUser.sendOutput(buffer, buffer.position());
+        }
+
       }
     }
 
     System.out.println("server socket end");
+  }
+
+  private boolean zipAllFiles() {
+
+    File zipFile = new File(zipFileName);
+    int index = 0;
+    while (zipFile.exists()) {
+      if (!zipFile.delete()) {
+        ++index;
+        zipFileName = "LogFiles_" + index + ".zip";
+        zipFile = new File(zipFileName);
+      }
+    }
+
+    try {
+
+      FileOutputStream fos = new FileOutputStream(zipFileName);
+
+      ZipOutputStream zos = new ZipOutputStream(fos);
+
+      File[] files = dir.listFiles();
+
+      for (int i = 0; i < files.length; i++) {
+
+        FileInputStream fis = new FileInputStream(files[i]);
+
+        // begin writing a new ZIP entry, positions the stream to the start of
+        // the entry data
+        zos.putNextEntry(new ZipEntry("LogFiles" + File.separator
+            + files[i].getName()));
+
+        int length;
+
+        while ((length = fis.read(fileBuffer)) > 0) {
+          zos.write(fileBuffer, 0, length);
+        }
+
+        zos.closeEntry();
+
+        // close the InputStream
+        fis.close();
+      }
+
+      // close the ZipOutputStream
+      zos.close();
+
+    } catch (IOException ioe) {
+      return false;
+    }
+
+    return true;
+
+  }
+
+  private boolean parseLogInPacket(byte[] packet, String userID, byte[] password) {
+    boolean result = false;
+    int i = 0;
+    StringBuilder s = new StringBuilder();
+    for (; i < packet.length; ++i) {
+      if (packet[i] == '=' && i + 1 < packet.length) {
+        ++i;
+        do {
+          s.append((char) packet[i]);
+          ++i;
+        } while (i >= packet.length ||packet[i] == ' ');
+        break;
+      }
+    }
+    userID = s.toString();
+    password = new byte[Encrypt.MAX_LENGTH];
+    for (; i < packet.length; ++i) {
+      if (packet[i] == '=' && i + 1 < packet.length) {
+        ++i;
+        int j = 0;
+        do {
+          password[j] = packet[i];
+          ++i;
+          ++j;
+        } while (i >= packet.length || packet[i] == ' ' || j >= password.length);
+        result = true;
+        break;
+      }
+    }
+
+    return result;
   }
 
   private String getUserId(byte[] b) {
@@ -227,6 +504,14 @@ public class NewServerSocket extends Thread {
       if (!f.delete()) {
         // TODO
       }
+    }
+
+    if (!zipFileName.contentEquals("LogFiles.zip")) {
+      zipFileName = "LogFiles.zip";
+    }
+    File oldZipFile = new File(zipFileName);
+    if (oldZipFile.exists()) {
+      oldZipFile.delete();
     }
 
     for (int i = 0; i < sharedData.allTransactionData.size();) {

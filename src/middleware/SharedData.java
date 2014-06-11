@@ -1,9 +1,6 @@
 package middleware;
 
 import java.io.BufferedOutputStream;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
@@ -12,9 +9,6 @@ import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -35,6 +29,7 @@ public class SharedData {
 	private String filePathName;
 	private boolean outputFlag;
 	private int numWorkers;
+	private String userInfoFilePath;
 
 	private long selectTime, inputTime, outputTime, returnTime;
 	
@@ -217,6 +212,14 @@ public class SharedData {
 
   public void setAdminPortNum(int adminPortNum) {
     this.adminPortNum = adminPortNum;
+  }
+
+  public String getUserInfoFilePath() {
+    return userInfoFilePath;
+  }
+
+  public void setUserInfoFilePath(String userInfoFilePath) {
+    this.userInfoFilePath = userInfoFilePath;
   }
 
 }
