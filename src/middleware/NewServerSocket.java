@@ -223,6 +223,10 @@ public class NewServerSocket extends Thread {
           MiddleSocketChannel middleSocketChannel = (MiddleSocketChannel) key
               .attachment();
 
+          buffer.clear();
+          middleSocketChannel.getInput(buffer);
+          buffer.position(0);
+
           int packetID = 0;
           long packetLength = -1;
           boolean isValidPacket = true;
@@ -258,11 +262,11 @@ public class NewServerSocket extends Thread {
                 middleSocketChannel.sendOutput(buffer, buffer.position());
               } else {
                 String userID = null;
-                byte[] password = null;
+                byte[] password = new byte[Encrypt.MAX_LENGTH];
                 byte[] packet = new byte[(int) packetLength];
-                buffer.get(packet, 12, (int) packetLength);
-                if (parseLogInPacket(packet, userID, password)
-                    && userInfo.get(userID).equals(Encrypt.eccrypt(password))) {
+                buffer.get(packet);
+                userID = parseLogInPacket(packet, password);
+                if (userInfo.get(userID).equals(Encrypt.eccrypt(password))) {
                   buffer.clear();
                   buffer.putInt(101);
                   buffer.putLong(0);
@@ -449,8 +453,7 @@ public class NewServerSocket extends Thread {
 
   }
 
-  private boolean parseLogInPacket(byte[] packet, String userID, byte[] password) {
-    boolean result = false;
+  private String parseLogInPacket(byte[] packet, byte[] password) {
     int i = 0;
     StringBuilder s = new StringBuilder();
     for (; i < packet.length; ++i) {
@@ -463,8 +466,6 @@ public class NewServerSocket extends Thread {
         break;
       }
     }
-    userID = s.toString();
-    password = new byte[Encrypt.MAX_LENGTH];
     for (; i < packet.length; ++i) {
       if (packet[i] == '=' && i + 1 < packet.length) {
         ++i;
@@ -473,13 +474,12 @@ public class NewServerSocket extends Thread {
           password[j] = packet[i];
           ++i;
           ++j;
-        } while (i >= packet.length || packet[i] == ' ' || j >= password.length);
-        result = true;
+        } while (i >= packet.length || j >= password.length);
         break;
       }
     }
 
-    return result;
+    return s.toString();
   }
 
   private String getUserId(byte[] b) {
