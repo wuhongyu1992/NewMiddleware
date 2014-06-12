@@ -199,161 +199,154 @@ public class NewServerSocket extends Thread {
               ++count;
             }
           } else if (key.channel() == adminServerSocketChannel) {
-            if (key.isAcceptable()) {
-              SocketChannel sock = null;
+            SocketChannel sock = null;
+            try {
+              sock = adminServerSocketChannel.accept();
+            } catch (IOException e) {
+              e.printStackTrace();
+            }
+            if (sock != null) {
               try {
-                sock = adminServerSocketChannel.accept();
+                sock.configureBlocking(true);
               } catch (IOException e) {
                 e.printStackTrace();
               }
-              if (sock != null) {
-                try {
-                  sock.configureBlocking(true);
-                } catch (IOException e) {
-                  e.printStackTrace();
-                }
-                MiddleSocketChannel middleSocketChannel = new MiddleSocketChannel(
-                    sock);
-                middleSocketChannel.setNonBlocking();
+              MiddleSocketChannel middleSocketChannel = new MiddleSocketChannel(
+                  sock);
+              middleSocketChannel.setNonBlocking();
 
-                middleSocketChannel.register(selector, middleSocketChannel);
+              middleSocketChannel.register(selector, middleSocketChannel);
 
-              }
-            } else if (key.isReadable()) {
-              MiddleSocketChannel middleSocketChannel = (MiddleSocketChannel) key
-                  .attachment();
+            }
+          }
+        } else if (key.isReadable()) {
+          MiddleSocketChannel middleSocketChannel = (MiddleSocketChannel) key
+              .attachment();
 
-              int packetID = 0;
-              long packetLength = -1;
-              boolean isValidPacket = true;
+          int packetID = 0;
+          long packetLength = -1;
+          boolean isValidPacket = true;
 
-              try {
-                packetID = buffer.getInt();
-                packetLength = buffer.getLong();
-              } catch (BufferUnderflowException e) {
+          try {
+            packetID = buffer.getInt();
+            packetLength = buffer.getLong();
+          } catch (BufferUnderflowException e) {
+            buffer.clear();
+            buffer.putInt(102);
+            String response = "Invalid packet header";
+            buffer.putLong(response.length());
+            buffer.put(response.getBytes());
+            isValidPacket = false;
+            middleSocketChannel.sendOutput(buffer, buffer.position());
+          }
+
+          if (isValidPacket) {
+            if (packetID == 100) {
+              if (userList.contains(middleSocketChannel)) {
                 buffer.clear();
                 buffer.putInt(102);
-                String response = "Invalid packet header";
+                String response = "You have already logged in";
                 buffer.putLong(response.length());
                 buffer.put(response.getBytes());
-                isValidPacket = false;
                 middleSocketChannel.sendOutput(buffer, buffer.position());
-              }
-
-              if (isValidPacket) {
-                if (packetID == 100) {
-                  if (userList.contains(middleSocketChannel)) {
-                    buffer.clear();
-                    buffer.putInt(102);
-                    String response = "You have already logged in";
-                    buffer.putLong(response.length());
-                    buffer.put(response.getBytes());
-                    middleSocketChannel.sendOutput(buffer, buffer.position());
-                  } else if (packetLength <= 0) {
-                    buffer.clear();
-                    buffer.putInt(102);
-                    String response = "Invalid packet length";
-                    buffer.putLong(response.length());
-                    buffer.put(response.getBytes());
-                    middleSocketChannel.sendOutput(buffer, buffer.position());
-                  } else {
-                    String userID = null;
-                    byte[] password = null;
-                    byte[] packet = new byte[(int) packetLength];
-                    buffer.get(packet, 12, (int) packetLength);
-                    if (parseLogInPacket(packet, userID, password)
-                        && userInfo.get(userID).equals(
-                            Encrypt.eccrypt(password))) {
-                      buffer.clear();
-                      buffer.putInt(101);
-                      buffer.putLong(0);
-                      middleSocketChannel.sendOutput(buffer, buffer.position());
-                      userList.add(middleSocketChannel);
-                    } else {
-                      buffer.clear();
-                      buffer.putInt(102);
-                      String response = "Invalid User ID or password";
-                      buffer.putLong(response.length());
-                      buffer.put(response.getBytes());
-                      middleSocketChannel.sendOutput(buffer, buffer.position());
-                    }
-                  }
-
-                } else if (packetID == 200) {
-                  if (userList.contains(middleSocketChannel)) {
-                    if (sharedData.isOutputToFile() || endingTrax
-                        || sendingFiles) {
-                      String response = "Current monitoring not finished";
-                      buffer.clear();
-                      buffer.putInt(202);
-                      buffer.putLong(response.length());
-                      buffer.put(response.getBytes());
-                      middleSocketChannel.sendOutput(buffer, buffer.position());
-                    } else {
-                      startMonitoring();
-                      buffer.clear();
-                      buffer.putInt(201);
-                      buffer.putLong(0);
-                      middleSocketChannel.sendOutput(buffer, buffer.position());
-                      curUser = middleSocketChannel;
-                    }
-                  } else {
-                    buffer.clear();
-                    buffer.putInt(102);
-                    String response = "You have not been registered";
-                    buffer.putLong(response.length());
-                    buffer.put(response.getBytes());
-                    middleSocketChannel.sendOutput(buffer, buffer.position());
-                    middleSocketChannel.close();
-                  }
-
-                } else if (packetID == 300) {
-                  if (userList.contains(middleSocketChannel)) {
-                    if (!sharedData.isOutputToFile()) {
-                      String response = "No monitoring running";
-                      buffer.clear();
-                      buffer.putInt(302);
-                      buffer.putLong(response.length());
-                      buffer.put(response.getBytes());
-                      middleSocketChannel.sendOutput(buffer, buffer.position());
-                    } else if (middleSocketChannel != curUser) {
-                      String response = "Monitoring running by other user";
-                      buffer.clear();
-                      buffer.putInt(302);
-                      buffer.putLong(response.length());
-                      buffer.put(response.getBytes());
-                      middleSocketChannel.sendOutput(buffer, buffer.position());
-                    } else if (endingTrax) {
-                      String response = "Writing log files, please wait";
-                      buffer.clear();
-                      buffer.putInt(302);
-                      buffer.putLong(response.length());
-                      buffer.put(response.getBytes());
-                      middleSocketChannel.sendOutput(buffer, buffer.position());
-                    } else {
-                      stopMonitoring();
-                    }
-                  } else {
-                    buffer.clear();
-                    buffer.putInt(102);
-                    String response = "You have not been registered";
-                    buffer.putLong(response.length());
-                    buffer.put(response.getBytes());
-                    middleSocketChannel.sendOutput(buffer, buffer.position());
-                    middleSocketChannel.close();
-                  }
-
+              } else if (packetLength <= 0) {
+                buffer.clear();
+                buffer.putInt(102);
+                String response = "Invalid packet length";
+                buffer.putLong(response.length());
+                buffer.put(response.getBytes());
+                middleSocketChannel.sendOutput(buffer, buffer.position());
+              } else {
+                String userID = null;
+                byte[] password = null;
+                byte[] packet = new byte[(int) packetLength];
+                buffer.get(packet, 12, (int) packetLength);
+                if (parseLogInPacket(packet, userID, password)
+                    && userInfo.get(userID).equals(Encrypt.eccrypt(password))) {
+                  buffer.clear();
+                  buffer.putInt(101);
+                  buffer.putLong(0);
+                  middleSocketChannel.sendOutput(buffer, buffer.position());
+                  userList.add(middleSocketChannel);
                 } else {
                   buffer.clear();
                   buffer.putInt(102);
-                  String response = "Invalid packet ID";
+                  String response = "Invalid User ID or password";
                   buffer.putLong(response.length());
                   buffer.put(response.getBytes());
                   middleSocketChannel.sendOutput(buffer, buffer.position());
                 }
               }
-            }
 
+            } else if (packetID == 200) {
+              if (userList.contains(middleSocketChannel)) {
+                if (sharedData.isOutputToFile() || endingTrax || sendingFiles) {
+                  String response = "Current monitoring not finished";
+                  buffer.clear();
+                  buffer.putInt(202);
+                  buffer.putLong(response.length());
+                  buffer.put(response.getBytes());
+                  middleSocketChannel.sendOutput(buffer, buffer.position());
+                } else {
+                  startMonitoring();
+                  buffer.clear();
+                  buffer.putInt(201);
+                  buffer.putLong(0);
+                  middleSocketChannel.sendOutput(buffer, buffer.position());
+                  curUser = middleSocketChannel;
+                }
+              } else {
+                buffer.clear();
+                buffer.putInt(102);
+                String response = "You have not been registered";
+                buffer.putLong(response.length());
+                buffer.put(response.getBytes());
+                middleSocketChannel.sendOutput(buffer, buffer.position());
+              }
+
+            } else if (packetID == 300) {
+              if (userList.contains(middleSocketChannel)) {
+                if (!sharedData.isOutputToFile()) {
+                  String response = "No monitoring running";
+                  buffer.clear();
+                  buffer.putInt(302);
+                  buffer.putLong(response.length());
+                  buffer.put(response.getBytes());
+                  middleSocketChannel.sendOutput(buffer, buffer.position());
+                } else if (middleSocketChannel != curUser) {
+                  String response = "Monitoring running by other user";
+                  buffer.clear();
+                  buffer.putInt(302);
+                  buffer.putLong(response.length());
+                  buffer.put(response.getBytes());
+                  middleSocketChannel.sendOutput(buffer, buffer.position());
+                } else if (endingTrax) {
+                  String response = "Writing log files, please wait";
+                  buffer.clear();
+                  buffer.putInt(302);
+                  buffer.putLong(response.length());
+                  buffer.put(response.getBytes());
+                  middleSocketChannel.sendOutput(buffer, buffer.position());
+                } else {
+                  stopMonitoring();
+                }
+              } else {
+                buffer.clear();
+                buffer.putInt(102);
+                String response = "You have not been registered";
+                buffer.putLong(response.length());
+                buffer.put(response.getBytes());
+                middleSocketChannel.sendOutput(buffer, buffer.position());
+              }
+
+            } else {
+              buffer.clear();
+              buffer.putInt(102);
+              String response = "Invalid packet ID";
+              buffer.putLong(response.length());
+              buffer.put(response.getBytes());
+              middleSocketChannel.sendOutput(buffer, buffer.position());
+            }
           }
         }
       }
