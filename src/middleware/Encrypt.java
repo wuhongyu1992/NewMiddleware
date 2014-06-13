@@ -18,7 +18,7 @@ import java.io.IOException;
 public class Encrypt {
   public static final int MAX_LENGTH = 30;
 
-  public static byte[] eccrypt(byte[] info) {
+  public static byte[] encrypt(byte[] info) {
     MessageDigest md5 = null;
     try {
       md5 = MessageDigest.getInstance("MD5");
@@ -37,14 +37,14 @@ public class Encrypt {
       String sCurrentLine;
       br = new BufferedReader(new FileReader(filePath));
       while ((sCurrentLine = br.readLine()) != null) {
-        char[] tempchars = new char[MAX_LENGTH];
+        byte[] tempchars = new byte[MAX_LENGTH];
         int i = 0, tempchar = 0;
         while ((tempchar = br.read()) != -1) {
           if (((char) tempchar) == '\n') {
-            usrInfo.put(sCurrentLine, eccrypt(tempchars.toString().getBytes()));
+            usrInfo.put(sCurrentLine, encrypt(tempchars));
             break;
           }
-          tempchars[i++] = (char) tempchar;
+          tempchars[i++] = (byte) tempchar;
         }
         for (int j = 0; j < tempchars.length; j++)
           tempchars[j] = ' ';
@@ -72,7 +72,7 @@ public class Encrypt {
       strChar[i] = ' ';
     }
 
-    byte[] resultBytes = eccrypt(msg.toString().getBytes());
+    byte[] resultBytes = encrypt(msg.toString().getBytes());
     String filePath = "   ";
     Map<String, byte[]> k = getUsrMap(filePath);//
     if (k.containsKey(usrName)) {

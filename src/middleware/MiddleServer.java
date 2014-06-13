@@ -1,11 +1,11 @@
 package middleware;
 
 import java.io.IOException;
-import java.net.InetSocketAddress;
 import java.nio.channels.SocketChannel;
 
 /**
- * Server SocketChannel to connect to clients, inherited from MiddleSocketChannel
+ * Server SocketChannel to connect to clients, inherited from
+ * MiddleSocketChannel
  * 
  * @author Hongyu Wu
  * 
@@ -34,12 +34,7 @@ public class MiddleServer extends MiddleSocketChannel {
   }
 
   public int getClientPort() {
-    int port = -1;
-    try {
-      port = ((InetSocketAddress) socketChannel.getRemoteAddress()).getPort();
-    } catch (IOException e) {
-      e.printStackTrace();
-    }
+    int port = socketChannel.socket().getPort();
     return port;
   }
 

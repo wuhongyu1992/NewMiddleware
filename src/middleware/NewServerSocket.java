@@ -14,8 +14,10 @@ import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Scanner;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.ZipEntry;
@@ -31,6 +33,7 @@ import java.util.zip.ZipOutputStream;
 public class NewServerSocket extends Thread {
 
   private SharedData sharedData;
+  private Scanner scanner;
   private ServerSocketChannel serverSocketChannel;
   private ServerSocketChannel adminServerSocketChannel;
   private Selector selector;
@@ -55,6 +58,7 @@ public class NewServerSocket extends Thread {
 
   NewServerSocket(SharedData s) {
     sharedData = s;
+    scanner = new Scanner(System.in);
     try {
       serverSocketChannel = ServerSocketChannel.open();
       serverSocketChannel.socket().bind(
@@ -266,7 +270,9 @@ public class NewServerSocket extends Thread {
                 byte[] packet = new byte[(int) packetLength];
                 buffer.get(packet);
                 userID = parseLogInPacket(packet, password);
-                if (userInfo.get(userID).equals(Encrypt.eccrypt(password))) {
+                if (userInfo.get(userID) != null
+                    && Arrays.equals(((byte[]) userInfo.get(userID)),
+                        Encrypt.encrypt(password))) {
                   buffer.clear();
                   buffer.putInt(101);
                   buffer.putLong(0);
@@ -397,6 +403,27 @@ public class NewServerSocket extends Thread {
         }
 
       }
+
+      String line = scanner.nextLine();
+      if (line == null || line.isEmpty())
+        continue;
+      if (line.contentEquals("q")) {
+        sharedData.setEndOfProgram(true);
+      }
+      if (line.contentEquals("o")) {
+        startMonitoring();
+        sharedData.setOutputToFile(true);
+      }
+      if (line.contentEquals("c")) {
+        stopMonitoring();
+        sharedData.setOutputToFile(false);
+      }
+      if (line.contentEquals("f")) {
+        sharedData.setOutputFlag(false);
+      }
+      if (line.contentEquals("t")) {
+        sharedData.setOutputFlag(true);
+      }
     }
 
   }
@@ -462,7 +489,7 @@ public class NewServerSocket extends Thread {
         do {
           s.append((char) packet[i]);
           ++i;
-        } while (i >= packet.length || packet[i] == ' ');
+        } while (i < packet.length && packet[i] != ' ');
         break;
       }
     }
@@ -474,7 +501,7 @@ public class NewServerSocket extends Thread {
           password[j] = packet[i];
           ++i;
           ++j;
-        } while (i >= packet.length || j >= password.length);
+        } while (i < packet.length && j < password.length);
         break;
       }
     }
