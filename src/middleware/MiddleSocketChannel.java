@@ -16,6 +16,7 @@ public class MiddleSocketChannel {
   protected SocketChannel socketChannel;
   protected String ipAddr;
   protected int portNum;
+  protected SelectionKey key;
 
   public boolean connectClient;
 
@@ -23,14 +24,17 @@ public class MiddleSocketChannel {
     ipAddr = ip;
     portNum = port;
     socketChannel = null;
+    key = null;
   }
 
   public MiddleSocketChannel() {
     socketChannel = null;
+    key = null;
   }
-  
+
   public MiddleSocketChannel(SocketChannel inSock) {
     socketChannel = inSock;
+    key = null;
   }
 
   public void sendOutput(ByteBuffer buffer, int len) {
@@ -92,9 +96,16 @@ public class MiddleSocketChannel {
    */
   public void register(Selector selector, Object attachment) {
     try {
-      socketChannel.register(selector, SelectionKey.OP_READ, attachment);
+      selector.wakeup();
+      key = socketChannel.register(selector, SelectionKey.OP_READ, attachment);
     } catch (ClosedChannelException e) {
       e.printStackTrace();
+    }
+  }
+  
+  public void cancelKey() {
+    if (key != null) {
+      key.cancel();
     }
   }
 

@@ -1,5 +1,7 @@
 package middleware;
 
+import java.util.Scanner;
+
 public class NewMiddleware {
 
   public static void main(String[] args) {
@@ -53,7 +55,37 @@ public class NewMiddleware {
 
     // RequestHandler requestHandler = new RequestHandler(sharedData);
     // requestHandler.start();
+    
+    Scanner scanner = new Scanner(System.in);
+    
+    while (!sharedData.isEndOfProgram()) {
 
+      String line = null;
+      if (scanner.hasNextLine()) {
+        line = scanner.nextLine();
+      }
+      if (line == null || line.isEmpty())
+        continue;
+      if (line.contentEquals("q")) {
+        sharedData.setEndOfProgram(true);
+      }
+      if (line.contentEquals("o")) {
+        serverSocket.startMonitoring();
+        sharedData.setOutputToFile(true);
+      }
+      if (line.contentEquals("c")) {
+        serverSocket.stopMonitoring();
+        sharedData.setOutputToFile(false);
+      }
+      if (line.contentEquals("f")) {
+        sharedData.setOutputFlag(false);
+      }
+      if (line.contentEquals("t")) {
+        sharedData.setOutputFlag(true);
+      }
+    }
+    scanner.close();
+    
     return;
   }
 

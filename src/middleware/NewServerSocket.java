@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
@@ -17,7 +18,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Scanner;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.ZipEntry;
@@ -33,7 +33,6 @@ import java.util.zip.ZipOutputStream;
 public class NewServerSocket extends Thread {
 
   private SharedData sharedData;
-  private Scanner scanner;
   private ServerSocketChannel serverSocketChannel;
   private ServerSocketChannel adminServerSocketChannel;
   private Selector selector;
@@ -58,7 +57,6 @@ public class NewServerSocket extends Thread {
 
   NewServerSocket(SharedData s) {
     sharedData = s;
-    scanner = new Scanner(System.in);
     try {
       serverSocketChannel = ServerSocketChannel.open();
       serverSocketChannel.socket().bind(
@@ -228,7 +226,11 @@ public class NewServerSocket extends Thread {
               .attachment();
 
           buffer.clear();
-          middleSocketChannel.getInput(buffer);
+          int len = middleSocketChannel.getInput(buffer);
+          if (len == -1) {
+            middleSocketChannel.cancelKey();
+            continue;
+          }
           buffer.position(0);
 
           int packetID = 0;
@@ -372,58 +374,59 @@ public class NewServerSocket extends Thread {
         }
         endingTrax = false;
 
-        if (zipAllFiles()) {
-          File zipFile = new File(zipFileName);
+        if (curUser != null) {
 
-          FileInputStream fis = null;
-          try {
-            fis = new FileInputStream(zipFile);
-          } catch (FileNotFoundException e) {
-            e.printStackTrace();
-          }
-          buffer.clear();
-          buffer.putInt(301);
-          buffer.putLong(zipFile.length());
-          curUser.sendOutput(buffer, buffer.position());
-          int len = 0;
-          try {
-            while ((len = fis.read(data)) > 0) {
-              curUser.sendOutput(buffer, len);
+          System.out.println("ready to compress log files");
+
+          if (zipAllFiles()) {
+
+            System.out
+                .println("finish compressing files, ready to send zip file");
+
+            File zipFile = new File(zipFileName);
+
+            FileInputStream fis = null;
+            try {
+              fis = new FileInputStream(zipFile);
+            } catch (FileNotFoundException e) {
+              e.printStackTrace();
             }
-          } catch (IOException e) {
-            e.printStackTrace();
+
+            FileChannel fc = fis.getChannel();
+
+            buffer.clear();
+            buffer.putInt(301);
+            buffer.putLong(zipFile.length());
+            curUser.sendOutput(buffer, buffer.position());
+            long position = 0;
+            long remaining = zipFile.length();
+            long len = 0;
+            while (remaining > 0) {
+              try {
+                len = fc.transferTo(position, 1024, curUser.socketChannel);
+              } catch (IOException e) {
+                e.printStackTrace();
+              }
+              position += len;
+              remaining -= len;
+              len = 0;
+            }
+
+            System.out.println("finish sending zip file");
+
+          } else {
+            String response = "fail to compress log files";
+            buffer.clear();
+            buffer.putInt(302);
+            buffer.putLong(response.length());
+            buffer.put(response.getBytes());
+            curUser.sendOutput(buffer, buffer.position());
           }
-        } else {
-          String response = "fail to compress log files";
-          buffer.clear();
-          buffer.putInt(302);
-          buffer.putLong(response.length());
-          buffer.put(response.getBytes());
-          curUser.sendOutput(buffer, buffer.position());
+          curUser = null;
         }
 
       }
 
-      String line = scanner.nextLine();
-      if (line == null || line.isEmpty())
-        continue;
-      if (line.contentEquals("q")) {
-        sharedData.setEndOfProgram(true);
-      }
-      if (line.contentEquals("o")) {
-        startMonitoring();
-        sharedData.setOutputToFile(true);
-      }
-      if (line.contentEquals("c")) {
-        stopMonitoring();
-        sharedData.setOutputToFile(false);
-      }
-      if (line.contentEquals("f")) {
-        sharedData.setOutputFlag(false);
-      }
-      if (line.contentEquals("t")) {
-        sharedData.setOutputFlag(true);
-      }
     }
 
   }
@@ -570,6 +573,8 @@ public class NewServerSocket extends Thread {
 
     sharedData.setOutputToFile(true);
 
+    System.out.println("start monitoring");
+
   }
 
   public void stopMonitoring() {
@@ -585,6 +590,8 @@ public class NewServerSocket extends Thread {
         sharedData.allTransactionData.remove(i);
       }
     }
+
+    System.out.println("stop monitoring");
 
   }
 
