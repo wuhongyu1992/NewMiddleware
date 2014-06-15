@@ -42,8 +42,9 @@ public class NewServerSocket extends Thread {
   private NewWorker[] workers;
   private byte[] data;
   private ByteBuffer buffer;
-  private boolean endingTrax;
+  private boolean endingMonitoring;
   private boolean sendingFiles;
+  private boolean monitoring;
 
   private Map<String, byte[]> userInfo;
 
@@ -116,8 +117,9 @@ public class NewServerSocket extends Thread {
 
     data = new byte[sharedData.getMaxSize()];
     buffer = ByteBuffer.wrap(data);
-    endingTrax = false;
+    endingMonitoring = false;
     sendingFiles = false;
+    monitoring = false;
 
     sharedData.txId = new AtomicInteger(0);
     sharedData.allTransactionData = new ArrayList<TransactionData>();
@@ -138,7 +140,11 @@ public class NewServerSocket extends Thread {
     while (!sharedData.isEndOfProgram()) {
 
       try {
-        selector.selectNow();
+        if (monitoring) {
+          selector.selectNow();
+        } else {
+          selector.select();
+        }
       } catch (IOException e) {
         e.printStackTrace();
       }
@@ -292,7 +298,8 @@ public class NewServerSocket extends Thread {
 
             } else if (packetID == 200) {
               if (userList.contains(middleSocketChannel)) {
-                if (sharedData.isOutputToFile() || endingTrax || sendingFiles) {
+                if (sharedData.isOutputToFile() || endingMonitoring
+                    || sendingFiles) {
                   String response = "Current monitoring not finished";
                   buffer.clear();
                   buffer.putInt(202);
@@ -332,7 +339,7 @@ public class NewServerSocket extends Thread {
                   buffer.putLong(response.length());
                   buffer.put(response.getBytes());
                   middleSocketChannel.sendOutput(buffer, buffer.position());
-                } else if (endingTrax) {
+                } else if (endingMonitoring) {
                   String response = "Writing log files, please wait";
                   buffer.clear();
                   buffer.putInt(302);
@@ -365,14 +372,13 @@ public class NewServerSocket extends Thread {
 
       if (!sharedData.allTransactions.isEmpty()) {
         printAllTransactions();
-      } else if (endingTrax) {
+      } else if (endingMonitoring) {
         try {
           sharedData.allLogFileOutputStream.flush();
           sharedData.allLogFileOutputStream.close();
         } catch (IOException e) {
           e.printStackTrace();
         }
-        endingTrax = false;
 
         if (curUser != null) {
 
@@ -422,6 +428,8 @@ public class NewServerSocket extends Thread {
             buffer.put(response.getBytes());
             curUser.sendOutput(buffer, buffer.position());
           }
+          endingMonitoring = false;
+          monitoring = false;
           curUser = null;
         }
 
@@ -572,6 +580,8 @@ public class NewServerSocket extends Thread {
     sharedData.txId.set(0);
 
     sharedData.setOutputToFile(true);
+    monitoring = true;
+    selector.wakeup();
 
     System.out.println("start monitoring");
 
@@ -579,7 +589,7 @@ public class NewServerSocket extends Thread {
 
   public void stopMonitoring() {
     sharedData.setOutputToFile(false);
-    endingTrax = true;
+    endingMonitoring = true;
 
     for (int i = 0; i < sharedData.allTransactionData.size();) {
       TransactionData tmp = sharedData.allTransactionData.get(i);
