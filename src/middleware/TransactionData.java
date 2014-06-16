@@ -16,6 +16,7 @@ import java.sql.Timestamp;
  * 
  */
 public class TransactionData {
+  public static final byte MYSQL_QUERY = 3;
 
   private MiddleServer middleServer;
   private SharedData sharedData;
@@ -26,6 +27,7 @@ public class TransactionData {
   private long traxEnd;
   private boolean inTrax;
   private boolean autoCommit;
+  private boolean tempAutoCommit;
 
   private Timestamp timestamp;
 
@@ -50,6 +52,7 @@ public class TransactionData {
 
     inTrax = false;
     autoCommit = true;
+    tempAutoCommit = true;
     endingTrax = false;
     isAlive = true;
     // transactions = new ConcurrentLinkedQueue<ByteBuffer>();
@@ -59,21 +62,23 @@ public class TransactionData {
   }
 
   public void processData(byte[] data, int len, long recTime) {
-    String s = "";
+
     if (!inTrax) {
-      if (traxBegin(data, len)) {
+      traxStart = recTime;
+      timestamp.setTime(traxStart);
+      String s = "," + clientPortNum + "," + userId + ","
+          + timestamp.toString() + ",{";
+      if (len - 5 + s.length() > bufferSize)
+        bufferSize *= 2;
+
+      curTransaction = ByteBuffer.allocate(bufferSize);
+      curTransaction.put(s.getBytes());
+      curTransaction.put(data, 5, len - 5);
+
+      if ((autoCommit && tempAutoCommit) || traxEnd(data, len)) {
+        endingTrax = true;
+      } else {
         inTrax = true;
-        traxStart = recTime;
-        timestamp.setTime(traxStart);
-        s += "," + clientPortNum + "," + userId + "," + timestamp.toString()
-            + ",{";
-        if (len - 5 + s.length() > bufferSize)
-          bufferSize *= 2;
-
-        curTransaction = ByteBuffer.allocate(bufferSize);
-        curTransaction.put(s.getBytes());
-        curTransaction.put(data, 5, len - 5);
-
       }
 
     } else {
@@ -92,7 +97,6 @@ public class TransactionData {
       if (traxEnd(data, len)) {
         inTrax = false;
         endingTrax = true;
-
       }
 
     }
@@ -128,7 +132,7 @@ public class TransactionData {
   }
 
   public void checkAutoCommit(byte[] data, int len) {
-    if (len < 6 || len > 21)
+    if (len < 6 || len > 30)
       return;
 
     String s = new String(data, 5, len - 5);
@@ -136,28 +140,22 @@ public class TransactionData {
     s = s.replaceAll("\\s", "");
     if (s.contentEquals("setautocommit=0"))
       autoCommit = false;
-    if (s.contentEquals("setautocommit=1"))
+    else if (s.contentEquals("setautocommit=1"))
       autoCommit = true;
 
-  }
+    if (autoCommit) {
+      if (s.contentEquals("begin") || s.contentEquals("starttransaction")) {
+        tempAutoCommit = false;
+      }
+      if (s.contentEquals("commit") || s.contentEquals("rollback")) {
+        tempAutoCommit = true;
+      }
+    }
 
-  private boolean traxBegin(byte[] data, int len) {
-    if (!autoCommit)
-      return true;
-    if (len < 6 || len > 22)
-      return false;
-
-    String s = new String(data, 5, len - 5);
-    s = s.toLowerCase();
-    s = s.replaceAll("\\s", "");
-    if (s.contentEquals("begin") || s.contentEquals("starttransaction"))
-      return true;
-    else
-      return false;
   }
 
   private boolean traxEnd(byte[] data, int len) {
-    if (len < 6 || len > 15)
+    if (len < 6 || len > 18)
       return false;
     String s = new String(data, 5, len - 5);
 
