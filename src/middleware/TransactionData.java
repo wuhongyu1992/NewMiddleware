@@ -28,18 +28,26 @@ public class TransactionData {
   private boolean inTrax;
   private boolean autoCommit;
   private boolean tempAutoCommit;
+  private long queryStart;
+  public boolean inQuery;
 
-  private Timestamp timestamp;
+  private Timestamp timestampS;
+  private Timestamp timestampE;
 
-  private int TxID;
+  private int txId;
+  private int stId;
+  private long queryId;
 
-  private File file;
-  private BufferedOutputStream fileOutputStream;
+  private File txFile;
+  private BufferedOutputStream txFileOutputStream;
+  private File stFile;
+  private BufferedOutputStream stFileOutputStream;
+  private File qFile;
+  private BufferedOutputStream qFileOutputStream;
 
-  private ByteBuffer curTransaction;
+  private ByteBuffer queryBuffer;
   private int bufferSize = 1024;
 
-  // public ConcurrentLinkedQueue<ByteBuffer> transactions;
   public boolean endingTrax;
   public boolean isAlive;
 
@@ -48,87 +56,118 @@ public class TransactionData {
     middleServer = server;
     clientPortNum = middleServer.getClientPort();
     userId = null;
-    sharedData.getMaxSize();
 
     inTrax = false;
+    inQuery = false;
     autoCommit = true;
     tempAutoCommit = true;
     endingTrax = false;
     isAlive = true;
-    // transactions = new ConcurrentLinkedQueue<ByteBuffer>();
 
-    timestamp = new Timestamp(0);
+    timestampS = new Timestamp(0);
+    timestampE = new Timestamp(0);
 
+    stId = 1;
   }
 
   public void processData(byte[] data, int len, long recTime) {
 
-    if (!inTrax) {
-      traxStart = recTime;
-      timestamp.setTime(traxStart);
-      String s = "," + clientPortNum + "," + userId + ","
-          + timestamp.toString() + ",{";
-      if (len - 5 + s.length() > bufferSize)
+    if (!inQuery) {
+      if (!inTrax) {
+        traxStart = recTime;
+        txId = sharedData.txId.incrementAndGet();
+
+        if ((autoCommit && tempAutoCommit) || traxEnd(data, len)) {
+          endingTrax = true;
+        } else {
+          inTrax = true;
+        }
+
+      } else {
+        if (traxEnd(data, len)) {
+          inTrax = false;
+          endingTrax = true;
+        }
+      }
+      
+      queryStart = recTime;
+      
+      if (len - 5 + 1 > bufferSize)
         bufferSize *= 2;
 
-      curTransaction = ByteBuffer.allocate(bufferSize);
-      curTransaction.put(s.getBytes());
-      curTransaction.put(data, 5, len - 5);
-
-      if ((autoCommit && tempAutoCommit) || traxEnd(data, len)) {
-        endingTrax = true;
-      } else {
-        inTrax = true;
-      }
+      queryBuffer = ByteBuffer.allocate(bufferSize);
+      queryBuffer.put((byte) ',');
+      queryBuffer.put(data, 5, len - 5);
+      
+      inQuery = true;
 
     } else {
-
-      while (len - 4 > curTransaction.remaining()) {
-        ByteBuffer tmp = curTransaction;
+      while (len > queryBuffer.remaining()) {
+        ByteBuffer tmp = queryBuffer;
         bufferSize *= 2;
-        curTransaction = ByteBuffer.allocate(bufferSize);
+        queryBuffer = ByteBuffer.allocate(bufferSize);
         tmp.limit(tmp.position());
         tmp.position(0);
-        curTransaction.put(tmp);
+        queryBuffer.put(tmp);
       }
-      curTransaction.put((byte) ';');
-      curTransaction.put(data, 5, len - 5);
-
-      if (traxEnd(data, len)) {
-        inTrax = false;
-        endingTrax = true;
-      }
-
+      queryBuffer.put(data, 0, len);
     }
   }
 
   public void endTrax(long t) {
+
     traxEnd = t;
-    timestamp.setTime(traxEnd);
+    timestampS.setTime(traxStart);
+    timestampE.setTime(traxEnd);
+    String s = "," + clientPortNum + "," + userId + "," + timestampS.toString()
+        + "," + timestampE.toString() + "," + (traxEnd - traxStart) + "\n";
 
-    String s = "}," + timestamp.toString() + "," + (traxEnd - traxStart) + "\n";
-
-    if (s.length() > curTransaction.remaining()) {
-      ByteBuffer tmp = curTransaction;
-      curTransaction = ByteBuffer.allocate(bufferSize + s.length());
-      tmp.limit(tmp.position());
-      tmp.position(0);
-      curTransaction.put(tmp);
-    }
-    curTransaction.put(s.getBytes());
-    TxID = sharedData.txId.incrementAndGet();
-    sharedData.allTransactions.put(TxID, curTransaction);
+    sharedData.allTransactions.put(txId, s.getBytes());
     try {
-      fileOutputStream.write(Integer.toString(TxID).getBytes());
-      fileOutputStream.write(curTransaction.array(), 0,
-          curTransaction.position());
+      txFileOutputStream.write(Integer.toString(txId).getBytes());
+      txFileOutputStream.write(s.getBytes());
     } catch (IOException e) {
       e.printStackTrace();
     }
 
-    curTransaction = null;
-
+    stId = 1;
     endingTrax = false;
+  }
+
+  public void endQuery(long t) {
+    timestampS.setTime(queryStart);
+    timestampE.setTime(t);
+    queryId = sharedData.queryId.incrementAndGet();
+    String s = txId + "," + stId + "," + queryId + "," + timestampS.toString()
+        + "," + timestampE.toString() + "," + (t - queryStart) + "\n";
+    sharedData.allStatementsInfo.add(s.getBytes());
+    if (queryBuffer.remaining() < 2) {
+      ByteBuffer tmp = queryBuffer;
+      queryBuffer = ByteBuffer.allocate(bufferSize + 2);
+      tmp.limit(tmp.position());
+      tmp.position(0);
+      queryBuffer.put(tmp);
+    }
+    queryBuffer.put((byte) 0);
+    queryBuffer.put((byte) '\n');
+    sharedData.allQueries.put(queryId, queryBuffer);
+
+    try {
+      stFileOutputStream.write(s.getBytes());
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+    try {
+      qFileOutputStream.write(Long.toString(queryId).getBytes());
+      qFileOutputStream.write(queryBuffer.array(), 0, queryBuffer.position());
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+
+    queryBuffer = null;
+    inQuery = false;
+    ++stId;
+
   }
 
   public void checkAutoCommit(byte[] data, int len) {
@@ -168,9 +207,23 @@ public class TransactionData {
   }
 
   public void flushToFile() {
-    if (fileOutputStream != null) {
+    if (txFileOutputStream != null) {
       try {
-        fileOutputStream.flush();
+        txFileOutputStream.flush();
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
+    }
+    if (stFileOutputStream != null) {
+      try {
+        stFileOutputStream.flush();
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
+    }
+    if (qFileOutputStream != null) {
+      try {
+        qFileOutputStream.flush();
       } catch (IOException e) {
         e.printStackTrace();
       }
@@ -187,10 +240,26 @@ public class TransactionData {
 
   public void openFileOutputStream() {
 
-    file = new File(sharedData.getFilePathName() + "/Transactions/client-"
-        + clientPortNum + ".txt");
+    txFile = new File(sharedData.getFilePathName() + "/Transactions/client-"
+        + clientPortNum + "-t.txt");
     try {
-      fileOutputStream = new BufferedOutputStream(new FileOutputStream(file));
+      txFileOutputStream = new BufferedOutputStream(
+          new FileOutputStream(txFile));
+    } catch (FileNotFoundException e) {
+      e.printStackTrace();
+    }
+    stFile = new File(sharedData.getFilePathName() + "/Transactions/client-"
+        + clientPortNum + "-s.txt");
+    try {
+      stFileOutputStream = new BufferedOutputStream(
+          new FileOutputStream(stFile));
+    } catch (FileNotFoundException e) {
+      e.printStackTrace();
+    }
+    qFile = new File(sharedData.getFilePathName() + "/Transactions/client-"
+        + clientPortNum + "-q.txt");
+    try {
+      qFileOutputStream = new BufferedOutputStream(new FileOutputStream(qFile));
     } catch (FileNotFoundException e) {
       e.printStackTrace();
     }
@@ -198,15 +267,30 @@ public class TransactionData {
   }
 
   public void closeFileOutputStream() {
-    if (fileOutputStream == null)
-      return;
-
-    try {
-      fileOutputStream.close();
-    } catch (IOException e) {
-      e.printStackTrace();
+    if (txFileOutputStream != null) {
+      try {
+        txFileOutputStream.close();
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
+      txFileOutputStream = null;
     }
-    fileOutputStream = null;
+    if (stFileOutputStream != null) {
+      try {
+        stFileOutputStream.close();
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
+      stFileOutputStream = null;
+    }
+    if (qFileOutputStream != null) {
+      try {
+        qFileOutputStream.close();
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
+      qFileOutputStream = null;
+    }
   }
 
 }

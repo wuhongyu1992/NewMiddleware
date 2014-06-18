@@ -18,8 +18,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -121,9 +121,10 @@ public class NewServerSocket extends Thread {
     sendingFiles = false;
     monitoring = false;
 
-    sharedData.txId = new AtomicInteger(0);
     sharedData.allTransactionData = new ArrayList<TransactionData>();
-    sharedData.allTransactions = new ConcurrentSkipListMap<Integer, ByteBuffer>();
+    sharedData.allTransactions = new ConcurrentSkipListMap<Integer, byte[]>();
+    sharedData.allStatementsInfo = new ConcurrentLinkedQueue<byte[]>();
+    sharedData.allQueries = new ConcurrentSkipListMap<Long, ByteBuffer>();
 
     userInfo = Encrypt.getUsrMap(sharedData.getUserInfoFilePath());
 
@@ -141,7 +142,7 @@ public class NewServerSocket extends Thread {
 
       try {
         if (monitoring) {
-          selector.selectNow();
+          selector.select(10);
         } else {
           selector.select();
         }
@@ -370,12 +371,40 @@ public class NewServerSocket extends Thread {
         }
       }
 
-      if (!sharedData.allTransactions.isEmpty()) {
-        printAllTransactions();
+      if (!sharedData.allTransactions.isEmpty()
+          || !sharedData.allStatementsInfo.isEmpty()
+          || !sharedData.allQueries.isEmpty()) {
+        int c = sharedData.allQueries.size();
+        while (c > 0) {
+          printQueries();
+          --c;
+        }
+        c = sharedData.allStatementsInfo.size();
+        while (c > 0) {
+          printStatementsInfo();
+          --c;
+        }
+        c = sharedData.allTransactions.size();
+        while (c > 0) {
+          printTransactions();
+          --c;
+        }
       } else if (endingMonitoring) {
         try {
-          sharedData.allLogFileOutputStream.flush();
-          sharedData.allLogFileOutputStream.close();
+          sharedData.tAllLogFileOutputStream.flush();
+          sharedData.tAllLogFileOutputStream.close();
+        } catch (IOException e) {
+          e.printStackTrace();
+        }
+        try {
+          sharedData.sAllLogFileOutputStream.flush();
+          sharedData.sAllLogFileOutputStream.close();
+        } catch (IOException e) {
+          e.printStackTrace();
+        }
+        try {
+          sharedData.qAllLogFileOutputStream.flush();
+          sharedData.qAllLogFileOutputStream.close();
         } catch (IOException e) {
           e.printStackTrace();
         }
@@ -530,14 +559,39 @@ public class NewServerSocket extends Thread {
     return stringBuilder.toString();
   }
 
-  private void printAllTransactions() {
+  private void printTransactions() {
     int TxID = sharedData.allTransactions.firstKey();
-    ByteBuffer tmpB = sharedData.allTransactions.pollFirstEntry().getValue();
+    byte[] tmpB = sharedData.allTransactions.pollFirstEntry().getValue();
 
     try {
-      sharedData.allLogFileOutputStream
-          .write(Integer.toString(TxID).getBytes());
-      sharedData.allLogFileOutputStream.write(tmpB.array(), 0, tmpB.position());
+      sharedData.tAllLogFileOutputStream.write(Integer.toString(TxID)
+          .getBytes());
+      sharedData.tAllLogFileOutputStream.write(tmpB);
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+
+  }
+
+  private void printStatementsInfo() {
+    byte[] tmpB = sharedData.allStatementsInfo.poll();
+
+    try {
+      sharedData.sAllLogFileOutputStream.write(tmpB);
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+
+  }
+
+  private void printQueries() {
+    long qId = sharedData.allQueries.firstKey();
+    ByteBuffer tmpB = sharedData.allQueries.pollFirstEntry().getValue();
+
+    try {
+      sharedData.qAllLogFileOutputStream.write(Long.toString(qId).getBytes());
+      sharedData.qAllLogFileOutputStream
+          .write(tmpB.array(), 0, tmpB.position());
     } catch (IOException e) {
       e.printStackTrace();
     }
@@ -570,14 +624,31 @@ public class NewServerSocket extends Thread {
     }
 
     try {
-      sharedData.allLogFileOutputStream = new BufferedOutputStream(
+      sharedData.tAllLogFileOutputStream = new BufferedOutputStream(
           new FileOutputStream(new File(sharedData.getFilePathName()
-              + "/Transactions/allLogs")));
+              + "/Transactions/allLogs-t.txt")));
+    } catch (FileNotFoundException e) {
+      e.printStackTrace();
+    }
+
+    try {
+      sharedData.sAllLogFileOutputStream = new BufferedOutputStream(
+          new FileOutputStream(new File(sharedData.getFilePathName()
+              + "/Transactions/allLogs-s.txt")));
+    } catch (FileNotFoundException e) {
+      e.printStackTrace();
+    }
+
+    try {
+      sharedData.qAllLogFileOutputStream = new BufferedOutputStream(
+          new FileOutputStream(new File(sharedData.getFilePathName()
+              + "/Transactions/allLogs-q.txt")));
     } catch (FileNotFoundException e) {
       e.printStackTrace();
     }
 
     sharedData.txId.set(0);
+    sharedData.queryId.set(0);
 
     sharedData.setOutputToFile(true);
     monitoring = true;

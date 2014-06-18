@@ -91,9 +91,13 @@ public class NewWorker extends Thread {
             if (sharedData.isOutputToFile()) {
               ((MiddleServer) from).transactionData.processData(data, len, ts3);
             }
-          } else if (sharedData.isOutputToFile()
-              && ((MiddleServer) to).transactionData.endingTrax) {
-            ((MiddleServer) to).transactionData.endTrax(ts4);
+          } else if (sharedData.isOutputToFile()) {
+            if (((MiddleServer) to).transactionData.inQuery) {
+              ((MiddleServer) to).transactionData.endQuery(ts4);
+            }
+            if (((MiddleServer) to).transactionData.endingTrax) {
+              ((MiddleServer) to).transactionData.endTrax(ts4);
+            }
           }
 
           ts5 = System.currentTimeMillis();

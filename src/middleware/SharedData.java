@@ -9,8 +9,10 @@ import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 /** 
  * The class to place data shared by all other classes
@@ -34,12 +36,17 @@ public class SharedData {
 	private long selectTime, inputTime, outputTime, returnTime;
 	
   public AtomicInteger txId;
+  public AtomicLong queryId;
   
   public ArrayList<TransactionData> allTransactionData;
   
-  public ConcurrentSkipListMap<Integer, ByteBuffer> allTransactions;
-  
-  public BufferedOutputStream allLogFileOutputStream;
+  public ConcurrentSkipListMap<Integer, byte[]> allTransactions;
+  public ConcurrentLinkedQueue<byte[]> allStatementsInfo;
+  public ConcurrentSkipListMap<Long, ByteBuffer> allQueries;
+
+  public BufferedOutputStream tAllLogFileOutputStream;
+  public BufferedOutputStream sAllLogFileOutputStream;
+  public BufferedOutputStream qAllLogFileOutputStream;
 
 
 	public HashMap<SocketChannel, MiddleSocketChannel> socketMap;
@@ -53,6 +60,9 @@ public class SharedData {
 		outputToFile = false;
 		filePathName = null;
 		outputFlag = false;
+
+    txId = new AtomicInteger(0);
+    queryId = new AtomicLong(0);
 		
 	}
 
