@@ -89,16 +89,16 @@ public class TransactionData {
           endingTrax = true;
         }
       }
-      
+
       queryStart = recTime;
-      
+
       if (len - 5 + 1 > bufferSize)
         bufferSize *= 2;
 
       queryBuffer = ByteBuffer.allocate(bufferSize);
       queryBuffer.put((byte) ',');
       queryBuffer.put(data, 5, len - 5);
-      
+
       inQuery = true;
 
     } else {
@@ -140,7 +140,6 @@ public class TransactionData {
     queryId = sharedData.queryId.incrementAndGet();
     String s = txId + "," + stId + "," + queryId + "," + timestampS.toString()
         + "," + timestampE.toString() + "," + (t - queryStart) + "\n";
-    sharedData.allStatementsInfo.add(s.getBytes());
     if (queryBuffer.remaining() < 2) {
       ByteBuffer tmp = queryBuffer;
       queryBuffer = ByteBuffer.allocate(bufferSize + 2);
@@ -150,7 +149,8 @@ public class TransactionData {
     }
     queryBuffer.put((byte) 0);
     queryBuffer.put((byte) '\n');
-    sharedData.allQueries.put(queryId, queryBuffer);
+//    sharedData.allStatementsInfo.add(s.getBytes());
+    sharedData.allQueries.put(queryId, new QueryData(s.getBytes(), queryBuffer));
 
     try {
       stFileOutputStream.write(s.getBytes());

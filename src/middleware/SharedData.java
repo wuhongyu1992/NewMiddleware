@@ -41,8 +41,8 @@ public class SharedData {
   public ArrayList<TransactionData> allTransactionData;
   
   public ConcurrentSkipListMap<Integer, byte[]> allTransactions;
-  public ConcurrentLinkedQueue<byte[]> allStatementsInfo;
-  public ConcurrentSkipListMap<Long, ByteBuffer> allQueries;
+//  public ConcurrentLinkedQueue<byte[]> allStatementsInfo;
+  public ConcurrentSkipListMap<Long, QueryData> allQueries;
 
   public BufferedOutputStream tAllLogFileOutputStream;
   public BufferedOutputStream sAllLogFileOutputStream;

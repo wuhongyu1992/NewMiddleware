@@ -123,8 +123,8 @@ public class NewServerSocket extends Thread {
 
     sharedData.allTransactionData = new ArrayList<TransactionData>();
     sharedData.allTransactions = new ConcurrentSkipListMap<Integer, byte[]>();
-    sharedData.allStatementsInfo = new ConcurrentLinkedQueue<byte[]>();
-    sharedData.allQueries = new ConcurrentSkipListMap<Long, ByteBuffer>();
+    // sharedData.allStatementsInfo = new ConcurrentLinkedQueue<byte[]>();
+    sharedData.allQueries = new ConcurrentSkipListMap<Long, QueryData>();
 
     userInfo = Encrypt.getUsrMap(sharedData.getUserInfoFilePath());
 
@@ -372,18 +372,17 @@ public class NewServerSocket extends Thread {
       }
 
       if (!sharedData.allTransactions.isEmpty()
-          || !sharedData.allStatementsInfo.isEmpty()
           || !sharedData.allQueries.isEmpty()) {
         int c = sharedData.allQueries.size();
         while (c > 0) {
           printQueries();
           --c;
         }
-        c = sharedData.allStatementsInfo.size();
-        while (c > 0) {
-          printStatementsInfo();
-          --c;
-        }
+//        c = sharedData.allStatementsInfo.size();
+//        while (c > 0) {
+//          printStatementsInfo();
+//          --c;
+//        }
         c = sharedData.allTransactions.size();
         while (c > 0) {
           printTransactions();
@@ -572,26 +571,32 @@ public class NewServerSocket extends Thread {
     }
 
   }
-
-  private void printStatementsInfo() {
-    byte[] tmpB = sharedData.allStatementsInfo.poll();
-
-    try {
-      sharedData.sAllLogFileOutputStream.write(tmpB);
-    } catch (IOException e) {
-      e.printStackTrace();
-    }
-
-  }
+//
+//  private void printStatementsInfo() {
+//    byte[] tmpB = sharedData.allStatementsInfo.poll();
+//
+//    try {
+//      sharedData.sAllLogFileOutputStream.write(tmpB);
+//    } catch (IOException e) {
+//      e.printStackTrace();
+//    }
+//
+//  }
 
   private void printQueries() {
     long qId = sharedData.allQueries.firstKey();
-    ByteBuffer tmpB = sharedData.allQueries.pollFirstEntry().getValue();
-
+    QueryData tmp = sharedData.allQueries.pollFirstEntry().getValue();
+    
+    try {
+      sharedData.sAllLogFileOutputStream.write(tmp.statementInfo);
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+    
     try {
       sharedData.qAllLogFileOutputStream.write(Long.toString(qId).getBytes());
       sharedData.qAllLogFileOutputStream
-          .write(tmpB.array(), 0, tmpB.position());
+          .write(tmp.query.array(), 0, tmp.query.position());
     } catch (IOException e) {
       e.printStackTrace();
     }
