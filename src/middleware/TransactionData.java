@@ -6,7 +6,6 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.sql.Timestamp;
 
 /**
  * The class to store and print data and info about transaction between one
@@ -30,9 +29,6 @@ public class TransactionData {
   private boolean tempAutoCommit;
   private long queryStart;
   public boolean inQuery;
-
-  private Timestamp timestampS;
-  private Timestamp timestampE;
 
   private int txId;
   private int stId;
@@ -63,9 +59,6 @@ public class TransactionData {
     tempAutoCommit = true;
     endingTrax = false;
     isAlive = true;
-
-    timestampS = new Timestamp(0);
-    timestampE = new Timestamp(0);
 
     stId = 1;
   }
@@ -117,10 +110,8 @@ public class TransactionData {
   public void endTrax(long t) {
 
     traxEnd = t;
-    timestampS.setTime(traxStart);
-    timestampE.setTime(traxEnd);
-    String s = "," + clientPortNum + "," + userId + "," + timestampS.toString()
-        + "," + timestampE.toString() + "," + (traxEnd - traxStart) + "\n";
+    String s = "," + clientPortNum + "," + userId + "," + (traxStart / 1000L)
+        + "," +(traxEnd/1000L) + "," + (traxEnd - traxStart) + "\n";
 
     sharedData.allTransactions.put(txId, s.getBytes());
     try {
@@ -135,11 +126,9 @@ public class TransactionData {
   }
 
   public void endQuery(long t) {
-    timestampS.setTime(queryStart);
-    timestampE.setTime(t);
     queryId = sharedData.queryId.incrementAndGet();
-    String s = txId + "," + stId + "," + queryId + "," + timestampS.toString()
-        + "," + timestampE.toString() + "," + (t - queryStart) + "\n";
+    String s = txId + "," + stId + "," + queryId + "," + (queryStart/1000L)
+        + "," + (t/1000L) + "," + (t - queryStart) + "\n";
     if (queryBuffer.remaining() < 2) {
       ByteBuffer tmp = queryBuffer;
       queryBuffer = ByteBuffer.allocate(bufferSize + 2);
@@ -149,8 +138,9 @@ public class TransactionData {
     }
     queryBuffer.put((byte) 0);
     queryBuffer.put((byte) '\n');
-//    sharedData.allStatementsInfo.add(s.getBytes());
-    sharedData.allQueries.put(queryId, new QueryData(s.getBytes(), queryBuffer));
+    // sharedData.allStatementsInfo.add(s.getBytes());
+    sharedData.allQueries
+        .put(queryId, new QueryData(s.getBytes(), queryBuffer));
 
     try {
       stFileOutputStream.write(s.getBytes());
