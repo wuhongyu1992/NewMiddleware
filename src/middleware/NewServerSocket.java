@@ -359,6 +359,28 @@ public class NewServerSocket extends Thread {
                 middleSocketChannel.sendOutput(buffer, buffer.position());
               }
 
+            } else if (packetID == 400) {
+              if (userList.contains(middleSocketChannel)) {
+                if (monitoring) {
+                  buffer.clear();
+                  buffer.putInt(402);
+                  buffer.putLong(0);
+                  middleSocketChannel.sendOutput(buffer, buffer.position());
+                } else {
+                  buffer.clear();
+                  buffer.putInt(401);
+                  buffer.putLong(0);
+                  middleSocketChannel.sendOutput(buffer, buffer.position());
+                }
+              } else {
+                buffer.clear();
+                buffer.putInt(102);
+                String response = "You have not been registered";
+                buffer.putLong(response.length());
+                buffer.put(response.getBytes());
+                middleSocketChannel.sendOutput(buffer, buffer.position());
+              }
+
             } else {
               buffer.clear();
               buffer.putInt(102);
@@ -378,11 +400,11 @@ public class NewServerSocket extends Thread {
           printQueries();
           --c;
         }
-//        c = sharedData.allStatementsInfo.size();
-//        while (c > 0) {
-//          printStatementsInfo();
-//          --c;
-//        }
+        // c = sharedData.allStatementsInfo.size();
+        // while (c > 0) {
+        // printStatementsInfo();
+        // --c;
+        // }
         c = sharedData.allTransactions.size();
         while (c > 0) {
           printTransactions();
@@ -493,8 +515,7 @@ public class NewServerSocket extends Thread {
 
         // begin writing a new ZIP entry, positions the stream to the start of
         // the entry data
-        zos.putNextEntry(new ZipEntry("LogFiles" + File.separator
-            + files[i].getName()));
+        zos.putNextEntry(new ZipEntry(files[i].getName()));
 
         int length;
 
@@ -571,32 +592,33 @@ public class NewServerSocket extends Thread {
     }
 
   }
-//
-//  private void printStatementsInfo() {
-//    byte[] tmpB = sharedData.allStatementsInfo.poll();
-//
-//    try {
-//      sharedData.sAllLogFileOutputStream.write(tmpB);
-//    } catch (IOException e) {
-//      e.printStackTrace();
-//    }
-//
-//  }
+
+  //
+  // private void printStatementsInfo() {
+  // byte[] tmpB = sharedData.allStatementsInfo.poll();
+  //
+  // try {
+  // sharedData.sAllLogFileOutputStream.write(tmpB);
+  // } catch (IOException e) {
+  // e.printStackTrace();
+  // }
+  //
+  // }
 
   private void printQueries() {
     long qId = sharedData.allQueries.firstKey();
     QueryData tmp = sharedData.allQueries.pollFirstEntry().getValue();
-    
+
     try {
       sharedData.sAllLogFileOutputStream.write(tmp.statementInfo);
     } catch (IOException e) {
       e.printStackTrace();
     }
-    
+
     try {
       sharedData.qAllLogFileOutputStream.write(Long.toString(qId).getBytes());
-      sharedData.qAllLogFileOutputStream
-          .write(tmp.query.array(), 0, tmp.query.position());
+      sharedData.qAllLogFileOutputStream.write(tmp.query.array(), 0,
+          tmp.query.position());
     } catch (IOException e) {
       e.printStackTrace();
     }
