@@ -1,11 +1,13 @@
 package middleware;
 
 import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
@@ -55,6 +57,8 @@ public class NewServerSocket extends Thread {
   private MiddleSocketChannel curUser;
 
   private ArrayList<MiddleSocketChannel> userList;
+
+  private Process dstat;
 
   NewServerSocket(SharedData s) {
     sharedData = s;
@@ -134,6 +138,7 @@ public class NewServerSocket extends Thread {
 
     userList = new ArrayList<MiddleSocketChannel>();
 
+    dstat = null;
   }
 
   public void run() {
@@ -677,16 +682,46 @@ public class NewServerSocket extends Thread {
     sharedData.txId.set(0);
     sharedData.queryId.set(0);
 
-    sharedData.setOutputToFile(true);
     monitoring = true;
     selector.wakeup();
+
+    startDstat();
+    sharedData.setOutputToFile(true);
 
     System.out.println("start monitoring");
 
   }
 
   public void stopMonitoring() {
+
+    File monitorPid = new File("rs-sysmon2/monitor.pid");
+    String pid = null;
+    if (monitorPid.exists()) {
+      try {
+        BufferedReader br = new BufferedReader(new InputStreamReader(
+            new FileInputStream(monitorPid)));
+        pid = br.readLine();
+        br.close();
+      } catch (FileNotFoundException e1) {
+        e1.printStackTrace();
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
+
+      String[] cmd = { "pkill", "-15", "-P", pid };
+      try {
+        Process p = Runtime.getRuntime().exec(cmd);
+        p.waitFor();
+      } catch (IOException e) {
+        e.printStackTrace();
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
+      monitorPid.delete();
+    }
+    
     sharedData.setOutputToFile(false);
+    dstat = null;
     endingMonitoring = true;
 
     for (int i = 0; i < sharedData.allTransactionData.size();) {
@@ -701,6 +736,41 @@ public class NewServerSocket extends Thread {
 
     System.out.println("stop monitoring");
 
+  }
+
+  private void startDstat() {
+    String[] cmd = { "/bin/bash", "./monitor.sh" };
+    ProcessBuilder pb = new ProcessBuilder(cmd);
+    pb.directory(new File("rs-sysmon2"));
+    try {
+      dstat = pb.start();
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+
+    // if (dstat != null) {
+    // BufferedReader b = new BufferedReader(new InputStreamReader(
+    // dstat.getInputStream()));
+    // String line = "";
+    //
+    // System.out.println("--------------");
+    // try {
+    // while ((line = b.readLine()) != null) {
+    // System.out.println(line);
+    // }
+    // } catch (IOException e) {
+    // // TODO Auto-generated catch block
+    // e.printStackTrace();
+    // }
+    // System.out.println("--------------");
+    //
+    // try {
+    // b.close();
+    // } catch (IOException e) {
+    // // TODO Auto-generated catch block
+    // e.printStackTrace();
+    // }
+    // }
   }
 
 }
