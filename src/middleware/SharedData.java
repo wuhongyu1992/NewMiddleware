@@ -32,6 +32,8 @@ public class SharedData {
 	private boolean outputFlag;
 	private int numWorkers;
 	private String userInfoFilePath;
+	private boolean isRemoteServer;
+	public String remoteServerUser;
 
 	private long selectTime, inputTime, outputTime, returnTime;
 	
@@ -60,6 +62,7 @@ public class SharedData {
 		outputToFile = false;
 		filePathName = null;
 		outputFlag = false;
+		isRemoteServer = false;
 
     txId = new AtomicInteger(0);
     queryId = new AtomicLong(0);
@@ -230,6 +233,14 @@ public class SharedData {
 
   public void setUserInfoFilePath(String userInfoFilePath) {
     this.userInfoFilePath = userInfoFilePath;
+  }
+
+  public boolean isRemoteServer() {
+    return isRemoteServer;
+  }
+
+  public void setRemoteServer(boolean isRemoteServer) {
+    this.isRemoteServer = isRemoteServer;
   }
 
 }

@@ -47,6 +47,8 @@ public class NewServerSocket extends Thread {
   private boolean endingMonitoring;
   private boolean sendingFiles;
   private boolean monitoring;
+  private boolean dstatDeployed;
+  private boolean failDeployDstat;
 
   private Map<String, byte[]> userInfo;
 
@@ -59,6 +61,10 @@ public class NewServerSocket extends Thread {
   private ArrayList<MiddleSocketChannel> userList;
 
   private Process dstat;
+
+  private Process ntpdate;
+
+  private Process stopRemoteDstat;
 
   NewServerSocket(SharedData s) {
     sharedData = s;
@@ -124,6 +130,8 @@ public class NewServerSocket extends Thread {
     endingMonitoring = false;
     sendingFiles = false;
     monitoring = false;
+    dstatDeployed = false;
+    failDeployDstat = false;
 
     sharedData.allTransactionData = new ArrayList<TransactionData>();
     sharedData.allTransactions = new ConcurrentSkipListMap<Integer, byte[]>();
@@ -139,6 +147,10 @@ public class NewServerSocket extends Thread {
     userList = new ArrayList<MiddleSocketChannel>();
 
     dstat = null;
+
+    ntpdate = null;
+
+    stopRemoteDstat = null;
   }
 
   public void run() {
@@ -438,6 +450,18 @@ public class NewServerSocket extends Thread {
         if (curUser != null) {
 
           System.out.println("ready to compress log files");
+          
+          if (stopRemoteDstat != null) {
+            Interrupter interrupter = new Interrupter(Thread.currentThread());
+            interrupter.start();
+            try {
+              stopRemoteDstat.waitFor();
+              interrupter.setOuterThreadWaiting(false);
+            } catch (InterruptedException e) {
+              e.printStackTrace();
+            }
+            stopRemoteDstat = null;
+          }
 
           if (zipAllFiles()) {
 
@@ -486,6 +510,15 @@ public class NewServerSocket extends Thread {
           endingMonitoring = false;
           monitoring = false;
           curUser = null;
+        }
+
+        if (System.getProperty("user.name").contentEquals("root")) {
+          String[] cmd = { "/bin/bash", "shell/chmod" };
+          try {
+            Runtime.getRuntime().exec(cmd);
+          } catch (IOException e) {
+            e.printStackTrace();
+          }
         }
 
       }
@@ -694,35 +727,53 @@ public class NewServerSocket extends Thread {
 
   public void stopMonitoring() {
 
-    File monitorPid = new File("rs-sysmon2/monitor.pid");
-    String pid = null;
-    if (monitorPid.exists()) {
-      try {
-        BufferedReader br = new BufferedReader(new InputStreamReader(
-            new FileInputStream(monitorPid)));
-        pid = br.readLine();
-        br.close();
-      } catch (FileNotFoundException e1) {
-        e1.printStackTrace();
-      } catch (IOException e) {
-        e.printStackTrace();
+    if (sharedData.isRemoteServer()) {
+      if (dstatDeployed && !failDeployDstat) {
+        String[] cmd = { "/bin/bash", "shell/stop_remote_monitor.sh",
+            sharedData.remoteServerUser, sharedData.getServerIpAddr() };
+        try {
+          stopRemoteDstat = Runtime.getRuntime().exec(cmd);
+        } catch (IOException e) {
+          e.printStackTrace();
+        }
       }
 
-      String[] cmd = { "pkill", "-15", "-P", pid };
-      try {
-        Process p = Runtime.getRuntime().exec(cmd);
-        p.waitFor();
-      } catch (IOException e) {
-        e.printStackTrace();
-      } catch (InterruptedException e) {
-        e.printStackTrace();
+    } else {
+      File monitorPid = new File("rs-sysmon2/monitor.pid");
+      String pid = null;
+
+      if (monitorPid.exists()) {
+        try {
+          BufferedReader br = new BufferedReader(new InputStreamReader(
+              new FileInputStream(monitorPid)));
+          pid = br.readLine();
+          br.close();
+        } catch (FileNotFoundException e1) {
+          e1.printStackTrace();
+        } catch (IOException e) {
+          e.printStackTrace();
+        }
+
+        String[] cmd = { "pkill", "-15", "-P", pid };
+        try {
+          Process p = Runtime.getRuntime().exec(cmd);
+          p.waitFor();
+        } catch (IOException e) {
+          e.printStackTrace();
+        } catch (InterruptedException e) {
+          e.printStackTrace();
+        }
+        monitorPid.delete();
       }
-      monitorPid.delete();
     }
-    
+
     sharedData.setOutputToFile(false);
     dstat = null;
     endingMonitoring = true;
+
+    if (ntpdate != null) {
+      ntpdate.destroy();
+    }
 
     for (int i = 0; i < sharedData.allTransactionData.size();) {
       TransactionData tmp = sharedData.allTransactionData.get(i);
@@ -739,13 +790,57 @@ public class NewServerSocket extends Thread {
   }
 
   private void startDstat() {
-    String[] cmd = { "/bin/bash", "./monitor.sh" };
-    ProcessBuilder pb = new ProcessBuilder(cmd);
-    pb.directory(new File("rs-sysmon2"));
-    try {
-      dstat = pb.start();
-    } catch (IOException e) {
-      e.printStackTrace();
+    if (!sharedData.isRemoteServer()) {
+      String[] cmd = { "/bin/bash", "./monitor.sh" };
+      ProcessBuilder pb = new ProcessBuilder(cmd);
+      pb.directory(new File("rs-sysmon2"));
+      try {
+        dstat = pb.start();
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
+    } else {
+      if (sharedData.remoteServerUser.length() != 0) {
+        if (System.getProperty("user.name").contentEquals("root")) {
+          String[] cmd = { "/bin/bash", "shell/sync_time.sh",
+              sharedData.getServerIpAddr() };
+          try {
+            ntpdate = Runtime.getRuntime().exec(cmd);
+          } catch (IOException e) {
+            e.printStackTrace();
+          }
+        }
+        if (!dstatDeployed) {
+          String[] cmd = { "/bin/bash", "shell/deploy_dstat.sh",
+              sharedData.remoteServerUser, sharedData.getServerIpAddr() };
+          Process deployDstat = null;
+          try {
+            deployDstat = Runtime.getRuntime().exec(cmd);
+          } catch (IOException e) {
+            e.printStackTrace();
+          }
+          dstatDeployed = true;
+          if (deployDstat != null) {
+            Interrupter interrupter = new Interrupter(Thread.currentThread());
+            interrupter.start();
+            try {
+              deployDstat.waitFor();
+              interrupter.setOuterThreadWaiting(false);
+            } catch (InterruptedException e) {
+              failDeployDstat = true;
+            }
+          }
+        }
+        if (!failDeployDstat) {
+          String[] cmd = { "/bin/bash", "shell/monitor_remote_server.sh",
+              sharedData.remoteServerUser, sharedData.getServerIpAddr() };
+          try {
+            Runtime.getRuntime().exec(cmd);
+          } catch (IOException e) {
+            e.printStackTrace();
+          }
+        }
+      }
     }
 
     // if (dstat != null) {
@@ -759,7 +854,6 @@ public class NewServerSocket extends Thread {
     // System.out.println(line);
     // }
     // } catch (IOException e) {
-    // // TODO Auto-generated catch block
     // e.printStackTrace();
     // }
     // System.out.println("--------------");
@@ -767,10 +861,36 @@ public class NewServerSocket extends Thread {
     // try {
     // b.close();
     // } catch (IOException e) {
-    // // TODO Auto-generated catch block
     // e.printStackTrace();
     // }
     // }
+  }
+
+  private class Interrupter extends Thread {
+    private Thread outerThread;
+    private boolean outerThreadWaiting;
+
+    public Interrupter(Thread t) {
+      outerThread = t;
+      outerThreadWaiting = true;
+    }
+
+    public void setOuterThreadWaiting(boolean b) {
+      outerThreadWaiting = b;
+    }
+
+    public void run() {
+      try {
+        Thread.sleep(60000);
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
+
+      if (outerThreadWaiting) {
+        outerThread.interrupt();
+      }
+
+    }
   }
 
 }

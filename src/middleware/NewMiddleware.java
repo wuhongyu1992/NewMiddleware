@@ -19,6 +19,23 @@ public class NewMiddleware {
     }
 
     String serverIpAddr = args[1];
+    if (!serverIpAddr.contentEquals("127.0.0.1")
+        && !serverIpAddr.contentEquals("localhost")) {
+      sharedData.setRemoteServer(true);
+      sharedData.remoteServerUser = serverIpAddr.substring(0,
+          serverIpAddr.indexOf('@') == -1 ? 0 : serverIpAddr.indexOf('@'));
+      if (sharedData.remoteServerUser.length() == 0) {
+        System.out
+            .println("Warning: lack of user name for remote server, will not deploy dstat monitoring");
+      }
+      serverIpAddr = serverIpAddr.substring(serverIpAddr.indexOf('@') + 1,
+          serverIpAddr.length());
+      if (!System.getProperty("user.name").contentEquals("root")) {
+        System.out
+            .println("Warning: running middleware by non-root user, will not sync dstat monitoring and middleware monitoring");
+      }
+    }
+
     int serverPortNum = Integer.parseInt(args[2]);
     if (serverPortNum > 65536 || serverPortNum < 0) {
       System.out.println("Error: invalid server port: " + serverPortNum);
@@ -55,9 +72,9 @@ public class NewMiddleware {
 
     // RequestHandler requestHandler = new RequestHandler(sharedData);
     // requestHandler.start();
-    
+
     Scanner scanner = new Scanner(System.in);
-    
+
     while (!sharedData.isEndOfProgram()) {
 
       String line = null;
@@ -85,8 +102,7 @@ public class NewMiddleware {
       }
     }
     scanner.close();
-    
+
     return;
   }
-
 }
