@@ -37,10 +37,18 @@ public class Encrypt {
       String sCurrentLine;
       br = new BufferedReader(new FileReader(filePath));
       while ((sCurrentLine = br.readLine()) != null) {
+        if (!sCurrentLine.replaceAll("\\s", "").contentEquals("<user-password>")) {
+          continue;
+        } else if (!sCurrentLine.replaceAll("\\s", "").contentEquals("</user-password>")) {
+          break;
+        }
         byte[] tempchars = new byte[MAX_LENGTH];
         int i = 0, tempchar = 0;
         while ((tempchar = br.read()) != -1) {
           if (((char) tempchar) == '\n') {
+            if (new String(tempchars).replaceAll("\\s", "").contentEquals("</user-password>")) {
+              throw new Exception();
+            }
             usrInfo.put(sCurrentLine, encrypt(tempchars));
             break;
           }
@@ -51,7 +59,9 @@ public class Encrypt {
       }
     } catch (IOException e) {
       e.printStackTrace();
-    } finally {
+    } catch (Exception e1) {
+    }
+    finally {
       try {
         if (br != null)
           br.close();

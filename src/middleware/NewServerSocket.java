@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
@@ -20,7 +21,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -49,6 +49,12 @@ public class NewServerSocket extends Thread {
   private boolean monitoring;
   private boolean dstatDeployed;
   private boolean failDeployDstat;
+  private boolean configSetenv;
+
+  private String mysql_user;
+  private String mysql_pass;
+  private String mysql_host;
+  private String mysql_port;
 
   private Map<String, byte[]> userInfo;
 
@@ -132,6 +138,12 @@ public class NewServerSocket extends Thread {
     monitoring = false;
     dstatDeployed = false;
     failDeployDstat = false;
+    configSetenv = false;
+
+    mysql_user = null;
+    mysql_pass = null;
+    mysql_host = null;
+    mysql_port = null;
 
     sharedData.allTransactionData = new ArrayList<TransactionData>();
     sharedData.allTransactions = new ConcurrentSkipListMap<Integer, byte[]>();
@@ -450,7 +462,7 @@ public class NewServerSocket extends Thread {
         if (curUser != null) {
 
           System.out.println("ready to compress log files");
-          
+
           if (stopRemoteDstat != null) {
             Interrupter interrupter = new Interrupter(Thread.currentThread());
             interrupter.start();
@@ -811,6 +823,7 @@ public class NewServerSocket extends Thread {
           }
         }
         if (!dstatDeployed) {
+          configureSetenv();
           String[] cmd = { "/bin/bash", "shell/deploy_dstat.sh",
               sharedData.remoteServerUser, sharedData.getServerIpAddr() };
           Process deployDstat = null;
@@ -829,6 +842,9 @@ public class NewServerSocket extends Thread {
             } catch (InterruptedException e) {
               failDeployDstat = true;
             }
+          }
+          if (configSetenv) {
+            clearSetenv();
           }
         }
         if (!failDeployDstat) {
@@ -864,6 +880,88 @@ public class NewServerSocket extends Thread {
     // e.printStackTrace();
     // }
     // }
+  }
+
+  private void configureSetenv() {
+    BufferedReader br = null;
+    ProcessBuilder pb = new ProcessBuilder("/bin/bash",
+        "shell/config_setenv.sh");
+    Map<String, String> env = pb.environment();
+    try {
+      br = new BufferedReader(new FileReader(sharedData.getUserInfoFilePath()));
+    } catch (FileNotFoundException e) {
+      e.printStackTrace();
+    }
+    String line;
+    try {
+      while ((line = br.readLine()) != null) {
+        String temp = line.replaceAll("\\s", "");
+        if (temp.contains("mysql_user=")) {
+          mysql_user = temp.substring(temp.indexOf('=') + 1);
+          env.put("mMYSQL_USER", mysql_user);
+          configSetenv = true;
+        } else if (temp.contains("mysql_pass=")) {
+          mysql_pass = temp.substring(temp.indexOf('=') + 1);
+          env.put("mMYSQL_PASS", mysql_pass);
+          configSetenv = true;
+        } else if (temp.contains("mysql_host=")) {
+          mysql_host = temp.substring(temp.indexOf('=') + 1);
+          env.put("mMYSQL_HOST", mysql_host);
+          configSetenv = true;
+        } else if (temp.contains("mysql_port=")) {
+          mysql_port = temp.substring(temp.indexOf('=') + 1);
+          env.put("mMYSQL_PORT", mysql_port);
+          configSetenv = true;
+        }
+      }
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+    if (configSetenv) {
+      Process p = null;
+      try {
+        p = pb.start();
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
+      if (p != null) {
+        try {
+          p.waitFor();
+        } catch (InterruptedException e) {
+          e.printStackTrace();
+        }
+      }
+    }
+  }
+
+  private void clearSetenv() {
+    ProcessBuilder pb = new ProcessBuilder("/bin/bash", "shell/clear_setenv.sh");
+    Map<String, String> env = pb.environment();
+    if (mysql_user != null) {
+      env.put("mMYSQL_USER", mysql_user);
+    }
+    if (mysql_pass != null) {
+      env.put("mMYSQL_PASS", mysql_pass);
+    }
+    if (mysql_host != null) {
+      env.put("mMYSQL_HOST", mysql_host);
+    }
+    if (mysql_port != null) {
+      env.put("mMYSQL_PORT", mysql_port);
+    }
+    Process p = null;
+    try {
+      p = pb.start();
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+    if (p != null) {
+      try {
+        p.waitFor();
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
+    }
   }
 
   private class Interrupter extends Thread {
