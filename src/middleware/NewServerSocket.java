@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -630,12 +631,12 @@ public class NewServerSocket extends Thread {
   }
 
   private void printTransactions() {
-    int TxID = sharedData.allTransactions.firstKey();
-    byte[] tmpB = sharedData.allTransactions.pollFirstEntry().getValue();
+    Entry<Integer, byte[]> tmpE = sharedData.allTransactions.pollFirstEntry();
+    Integer TxID = tmpE.getKey();
+    byte[] tmpB = tmpE.getValue();
 
     try {
-      sharedData.tAllLogFileOutputStream.write(Integer.toString(TxID)
-          .getBytes());
+      sharedData.tAllLogFileOutputStream.write(TxID.toString().getBytes());
       sharedData.tAllLogFileOutputStream.write(tmpB);
     } catch (IOException e) {
       e.printStackTrace();
@@ -656,8 +657,9 @@ public class NewServerSocket extends Thread {
   // }
 
   private void printQueries() {
-    long qId = sharedData.allQueries.firstKey();
-    QueryData tmp = sharedData.allQueries.pollFirstEntry().getValue();
+    Entry<Long, QueryData> tmpE = sharedData.allQueries.pollFirstEntry();
+    Long qId = tmpE.getKey();
+    QueryData tmp = tmpE.getValue();
 
     try {
       sharedData.sAllLogFileOutputStream.write(tmp.statementInfo);
@@ -666,7 +668,7 @@ public class NewServerSocket extends Thread {
     }
 
     try {
-      sharedData.qAllLogFileOutputStream.write(Long.toString(qId).getBytes());
+      sharedData.qAllLogFileOutputStream.write(qId.toString().getBytes());
       sharedData.qAllLogFileOutputStream.write(tmp.query.array(), 0,
           tmp.query.position());
     } catch (IOException e) {

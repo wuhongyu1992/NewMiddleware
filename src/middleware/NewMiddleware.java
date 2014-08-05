@@ -52,7 +52,7 @@ public class NewMiddleware {
 
     int adminPortNum = 3334;
     if (args.length > 5) {
-      adminPortNum = Integer.parseInt(args[4]);
+      adminPortNum = Integer.parseInt(args[5]);
     }
 
     sharedData.setMaxSize(16 * 1024);
@@ -86,18 +86,18 @@ public class NewMiddleware {
       if (line.contentEquals("q")) {
         sharedData.setEndOfProgram(true);
       }
-      if (line.contentEquals("o")) {
+      else if (line.contentEquals("o")) {
         serverSocket.startMonitoring();
         sharedData.setOutputToFile(true);
       }
-      if (line.contentEquals("c")) {
+      else if (line.contentEquals("c")) {
         serverSocket.stopMonitoring();
         sharedData.setOutputToFile(false);
       }
-      if (line.contentEquals("f")) {
+      else if (line.contentEquals("f")) {
         sharedData.setOutputFlag(false);
       }
-      if (line.contentEquals("t")) {
+      else if (line.contentEquals("t")) {
         sharedData.setOutputFlag(true);
       }
     }
